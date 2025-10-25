@@ -1,10 +1,7 @@
-// lib/register_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
-// Import halaman home (buat nanti, pastikan nama filenya benar jika sudah dibuat)
-// import 'home_page.dart';
+import 'home_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -65,11 +62,7 @@ class _RegisterPageState extends State<RegisterPage> {
           // Cek jika widget masih ada
           // Ganti dengan navigasi ke halaman home sebenarnya
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) =>
-                  const Scaffold(body: Center(child: Text('Halaman Home'))),
-              // builder: (context) => const HomePage(), // Nanti ganti ke sini
-            ),
+            MaterialPageRoute(builder: (context) => const HomePage()),
           );
         }
       }
@@ -112,6 +105,7 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF3B82F6);
+    const Color secondaryBlue = Color(0xFF2563EB);
     const Color lightBlueOutline = Color(0xFFADD8E6);
     const Color hintTextColor = Colors.grey;
 
@@ -149,7 +143,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: primaryBlue, // Warna Biru
+                    color: secondaryBlue, // Warna Biru
                   ),
                 ),
                 const SizedBox(height: 15),
@@ -180,7 +174,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   padding: const EdgeInsets.all(25.0),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(20.0),
+                    borderRadius: BorderRadius.circular(10.0),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.withOpacity(0.15),
@@ -203,7 +197,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             hintText: 'Name',
                             hintStyle: const TextStyle(color: hintTextColor),
                             contentPadding: const EdgeInsets.symmetric(
-                              vertical: 15.0,
+                              vertical: 10.0,
                               horizontal: 20.0,
                             ),
                             border: OutlineInputBorder(
@@ -244,7 +238,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             hintText: 'Email',
                             hintStyle: const TextStyle(color: hintTextColor),
                             contentPadding: const EdgeInsets.symmetric(
-                              vertical: 15.0,
+                              vertical: 10.0,
                               horizontal: 20.0,
                             ),
                             border: OutlineInputBorder(
@@ -288,7 +282,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             hintText: 'Password',
                             hintStyle: const TextStyle(color: hintTextColor),
                             contentPadding: const EdgeInsets.symmetric(
-                              vertical: 15.0,
+                              vertical: 10.0,
                               horizontal: 20.0,
                             ),
                             border: OutlineInputBorder(
@@ -330,7 +324,7 @@ class _RegisterPageState extends State<RegisterPage> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryBlue,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30.0),
                             ),

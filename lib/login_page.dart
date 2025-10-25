@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
 import 'register_page.dart';
-// import 'home_page.dart'; // Nanti
+import 'home_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -46,11 +46,7 @@ class _LoginPageState extends State<LoginPage> {
       // 2. Jika berhasil, navigasi ke Halaman Home
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) =>
-                const Scaffold(body: Center(child: Text('Halaman Home'))),
-            // builder: (context) => const HomePage(), // Nanti ganti ke sini
-          ),
+          MaterialPageRoute(builder: (context) => const HomePage()),
         );
       }
     } on FirebaseAuthException catch (e) {
@@ -85,6 +81,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF3B82F6);
     const Color lightBlueOutline = Color(0xFFADD8E6);
+    const Color secondaryBlue = Color(0xFF2563EB);
     const Color hintTextColor = Colors.grey;
 
     return Scaffold(
@@ -101,7 +98,7 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 // Logo
                 Image.asset(
-                  'assets/images/app-logo-icon.png', // Logo tanpa background
+                  'assets/images/login-page-logo.png', // Logo tanpa background
                   height: 120, // Sedikit lebih besar?
                 ),
                 const SizedBox(height: 10),
@@ -124,7 +121,7 @@ class _LoginPageState extends State<LoginPage> {
                   style: TextStyle(
                     fontSize: 28, // Sedikit lebih besar
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87, // Sedikit pudar
+                    color: secondaryBlue, // Sedikit pudar
                   ),
                 ),
                 const SizedBox(height: 30),
@@ -135,7 +132,7 @@ class _LoginPageState extends State<LoginPage> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(
-                      20.0,
+                      10.0,
                     ), // Sudut lebih tumpul
                     boxShadow: [
                       BoxShadow(
@@ -159,7 +156,7 @@ class _LoginPageState extends State<LoginPage> {
                             hintText: 'Email', // Gunakan hintText
                             hintStyle: const TextStyle(color: hintTextColor),
                             contentPadding: const EdgeInsets.symmetric(
-                              vertical: 15.0,
+                              vertical: 10.0,
                               horizontal: 20.0,
                             ), // Padding dalam field
                             border: OutlineInputBorder(
@@ -206,7 +203,7 @@ class _LoginPageState extends State<LoginPage> {
                             hintText: 'Password',
                             hintStyle: const TextStyle(color: hintTextColor),
                             contentPadding: const EdgeInsets.symmetric(
-                              vertical: 15.0,
+                              vertical: 10.0,
                               horizontal: 20.0,
                             ),
                             border: OutlineInputBorder(
@@ -246,7 +243,7 @@ class _LoginPageState extends State<LoginPage> {
                             backgroundColor: primaryBlue,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
-                              vertical: 16,
+                              vertical: 10,
                             ), // Padding vertikal tombol
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(
@@ -287,7 +284,7 @@ class _LoginPageState extends State<LoginPage> {
                                   );
                                 },
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             side: const BorderSide(
                               color: primaryBlue,
                               width: 1.5,
