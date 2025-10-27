@@ -187,10 +187,12 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           keyboardType: TextInputType.emailAddress,
                           validator: (value) {
-                            if (value == null || value.isEmpty)
+                            if (value == null || value.isEmpty) {
                               return 'Please enter your email';
-                            if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value))
+                            }
+                            if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
                               return 'Please enter a valid email';
+                            }
                             return null;
                           },
                         ),
@@ -230,8 +232,9 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           obscureText: true,
                           validator: (value) {
-                            if (value == null || value.isEmpty)
+                            if (value == null || value.isEmpty) {
                               return 'Please enter your password';
+                            }
                             return null;
                           },
                         ),

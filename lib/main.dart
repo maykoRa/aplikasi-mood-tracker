@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart'; // Import Firebase Core
 import 'firebase_options.dart'; // Import file konfigurasi
 import 'splash_screen.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 // Ubah main menjadi async
 Future<void> main() async {
@@ -9,6 +10,7 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform, // Gunakan konfigurasi
   );
+  await initializeDateFormatting('id_ID', null);
   runApp(const MyApp());
 }
 

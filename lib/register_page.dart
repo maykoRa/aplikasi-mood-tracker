@@ -223,8 +223,9 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           validator: (value) {
-                            if (value == null || value.isEmpty)
+                            if (value == null || value.isEmpty) {
                               return 'Please enter your name';
+                            }
                             return null;
                           },
                         ),
@@ -265,10 +266,12 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                           keyboardType: TextInputType.emailAddress,
                           validator: (value) {
-                            if (value == null || value.isEmpty)
+                            if (value == null || value.isEmpty) {
                               return 'Please enter your email';
-                            if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value))
+                            }
+                            if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
                               return 'Please enter a valid email';
+                            }
                             return null;
                           },
                         ),
@@ -309,10 +312,12 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                           obscureText: true,
                           validator: (value) {
-                            if (value == null || value.isEmpty)
+                            if (value == null || value.isEmpty) {
                               return 'Please enter your password';
-                            if (value.length < 6)
+                            }
+                            if (value.length < 6) {
                               return 'Password must be at least 6 characters';
+                            }
                             return null;
                           },
                         ),

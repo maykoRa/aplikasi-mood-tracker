@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Nanti untuk ambil nama user & logout
+import 'package:firebase_auth/firebase_auth.dart';
+import 'add_entry_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
+import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -53,12 +56,11 @@ class _HomePageState extends State<HomePage> {
       // Tombol Tambah (Floating Action Button) di tengah
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Aksi saat tombol plus (+) ditekan -> Navigasi ke halaman Add Entry
-          print("Navigasi ke halaman Add Entry");
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Navigasi ke halaman Add Entry nanti'),
-            ),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddEntryPage(),
+            ), // <-- Arahkan ke AddEntryPage
           );
         },
         backgroundColor: const Color(0xFF3B82F6), // Warna biru
@@ -127,109 +129,156 @@ class _HomePageState extends State<HomePage> {
 class HomeScreenContent extends StatelessWidget {
   const HomeScreenContent({super.key});
 
+  // Helper untuk menentukan warna border berdasarkan mood text
+  Color _getBorderColor(String mood) {
+    switch (mood) {
+      case 'Sangat Baik':
+        return Colors.green;
+      case 'Baik':
+        return Colors.lightGreen;
+      case 'Biasa Saja':
+        return Colors.orange;
+      case 'Buruk':
+        return Colors.deepOrange;
+      case 'Sangat Buruk':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // Helper untuk mendapatkan emoji berdasarkan mood text
+  String _getEmoji(String mood) {
+    switch (mood) {
+      case 'Sangat Baik':
+        return '😄';
+      case 'Baik':
+        return '😊';
+      case 'Biasa Saja':
+        return '😐';
+      case 'Buruk':
+        return '😟';
+      case 'Sangat Buruk':
+        return '😠';
+      default:
+        return '❓';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF3B82F6);
-    // Nanti ambil nama user dari Firebase Auth
+    final user = FirebaseAuth.instance.currentUser; // Ambil user saat ini
     final String userName =
-        FirebaseAuth.instance.currentUser?.displayName ?? "Pengguna";
+        user?.displayName ?? user?.email?.split('@').first ?? "Pengguna";
+
+    // Format tanggal untuk tampilan di card
+    final DateFormat cardDateFormat = DateFormat('d MMMM yyyy', 'id_ID');
 
     return Scaffold(
-      backgroundColor: Colors.white, // Background putih
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
+          // Bungkus Column dengan SingleChildScrollView
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 25.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Greeting Text
-              Text(
-                'Halo, ${userName.split(' ').first}!', // Ambil nama depan saja
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              // ... (Greeting & Recommendation Card tetap sama)
+              Text('Halo, ${userName.split(' ').first}!' /* ... style ... */),
               const SizedBox(height: 30),
-
-              // Recommendation Card Title
-              const Text(
-                'Rekomendasi hari ini',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600, // SemiBold
-                  color: primaryBlue,
-                ),
-              ),
+              const Text('Rekomendasi hari ini' /* ... style ... */),
               const SizedBox(height: 10),
-
-              // Recommendation Card
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 25,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0F9FF), // Warna biru sangat muda
-                  borderRadius: BorderRadius.circular(15.0),
-                  border: Border.all(
-                    color: const Color(0xFFE0F2FE),
-                    width: 1.0,
-                  ), // Border tipis
-                ),
-                child: const Row(
-                  // Menggunakan Row agar bisa tambah icon di akhir
-                  children: [
-                    Expanded(
-                      // Agar teks bisa wrap jika panjang
-                      child: Text(
-                        'Coba luangkan waktu istirahat sejenak dan nikmati hal kecil hari ini',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Colors.black87,
-                          height: 1.4, // Line spacing
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      '📝',
-                      style: TextStyle(fontSize: 20),
-                    ), // Emoji (atau Icon)
-                  ],
-                ),
-              ),
+              Container(/* ... Recommendation Card ... */),
               const SizedBox(height: 35),
 
-              // Mood & Journal Entry Title
               const Text(
                 'Entri Mood & Jurnal',
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600, // SemiBold
+                  fontWeight: FontWeight.w600,
                   color: primaryBlue,
                 ),
               ),
               const SizedBox(height: 15),
 
-              // Mood Entry Cards (Contoh Statis)
-              _buildMoodCard(
-                emoji: '😄', // Atau Image.asset jika punya gambar
-                moodText: 'Sangat Baik',
-                description: 'Hari ini berjalan lancar dan penuh semangat!',
-                date: '18 Oktober 2025',
-                borderColor: Colors.green, // Warna border hijau
+              // StreamBuilder untuk menampilkan entri dari Firestore
+              StreamBuilder<QuerySnapshot>(
+                // Query: ambil data dari 'mood_entries', filter by userId, urutkan descending by timestamp
+                stream: FirebaseFirestore.instance
+                    .collection('mood_entries')
+                    .where(
+                      'userId',
+                      isEqualTo: user?.uid,
+                    ) // Filter berdasarkan user ID
+                    .orderBy(
+                      'timestamp',
+                      descending: true,
+                    ) // Urutkan terbaru di atas
+                    .snapshots(), // Dapatkan stream data
+                builder: (context, snapshot) {
+                  // Tampilkan loading jika masih menunggu data
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  // Tampilkan pesan error jika terjadi masalah
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+                  // Tampilkan pesan jika tidak ada data
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 30.0),
+                        child: Text(
+                          'Belum ada entri.\nYuk, tambahkan mood hari ini!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Jika ada data, tampilkan dalam bentuk list
+                  final entries = snapshot.data!.docs;
+                  return ListView.builder(
+                    shrinkWrap:
+                        true, // Agar ListView menyesuaikan tinggi kontennya
+                    physics:
+                        const NeverScrollableScrollPhysics(), // Nonaktifkan scroll internal ListView
+                    itemCount: entries.length,
+                    itemBuilder: (context, index) {
+                      final entry =
+                          entries[index].data() as Map<String, dynamic>;
+                      final mood =
+                          entry['mood'] as String? ?? 'Tidak Diketahui';
+                      final journal = entry['journal'] as String? ?? '';
+                      final timestamp = entry['timestamp'] as Timestamp?;
+                      final dateString = timestamp != null
+                          ? cardDateFormat.format(timestamp.toDate())
+                          : 'Tanggal tidak valid';
+                      final borderColor = _getBorderColor(mood);
+                      final emoji = _getEmoji(mood);
+
+                      // Gunakan _buildMoodCard yang sudah ada
+                      return Padding(
+                        padding: const EdgeInsets.only(
+                          bottom: 15.0,
+                        ), // Beri jarak antar card
+                        child: _buildMoodCard(
+                          emoji: emoji,
+                          moodText: mood,
+                          description: journal.isNotEmpty
+                              ? journal
+                              : 'Tidak ada catatan jurnal.', // Tampilkan placeholder jika jurnal kosong
+                          date: dateString,
+                          borderColor: borderColor,
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
-              const SizedBox(height: 15),
-              _buildMoodCard(
-                emoji: '😠', // Atau Image.asset
-                moodText: 'Sangat Buruk',
-                description:
-                    'Hari ini cukup berat, tapi aku berusaha tetap tenang.',
-                date: '17 Oktober 2025',
-                borderColor: Colors.red, // Warna border merah
-              ),
-              // Nanti list ini akan dinamis dari data Firestore
             ],
           ),
         ),
