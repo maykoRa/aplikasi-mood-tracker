@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart'; // Import Firebase Core
 import 'firebase_options.dart'; // Import file konfigurasi
 import 'splash_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 // Ubah main menjadi async
 Future<void> main() async {
@@ -28,6 +29,16 @@ class MyApp extends StatelessWidget {
       ),
       debugShowCheckedModeBanner: false,
       home: const SplashScreen(), // Nanti kita ganti ini dengan AuthWrapper
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('id', 'ID'), // Bahasa Indonesia
+        // Locale('en', 'US'), // Tambahkan English jika perlu fallback
+      ],
+      locale: const Locale('id', 'ID'),
     );
   }
 }

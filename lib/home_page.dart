@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'add_entry_page.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'add_entry_page.dart'; // Import halaman Add Entry
+
+// Import halaman lain jika sudah dibuat (atau biarkan placeholder)
+// import 'stats_page.dart';
+// import 'chatbot_page.dart';
+// import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,89 +17,95 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _selectedIndex = 0; // Untuk index BottomNavigationBar
+  int _selectedIndex = 0; // Index untuk BottomNavigationBar
 
-  // Nanti akan diganti dengan halaman sebenarnya
+  // Daftar halaman/konten untuk BottomNavigationBar
+  // Ganti Text placeholder dengan widget halaman sebenarnya nanti
   static const List<Widget> _widgetOptions = <Widget>[
     HomeScreenContent(), // Konten Halaman Home (Index 0)
-    Text(
-      'Halaman Stats',
-      style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold),
-    ),
-    Text(
-      'Halaman Add',
-      style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold),
-    ), // Placeholder for FAB action
-    Text(
-      'Halaman Chatbot',
-      style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold),
-    ),
-    Text(
-      'Halaman Profile',
-      style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold),
-    ),
+    Scaffold(body: Center(child: Text('Halaman Stats'))), // Placeholder
+    Scaffold(
+      body: Center(child: Text('Placeholder FAB')),
+    ), // Index 2 tidak dipakai langsung
+    Scaffold(body: Center(child: Text('Halaman Chatbot'))), // Placeholder
+    Scaffold(body: Center(child: Text('Halaman Profile'))), // Placeholder
   ];
 
   void _onItemTapped(int index) {
-    // Navigasi atau ganti tampilan berdasarkan index yang dipilih
-    // Untuk tombol Add (index 2), kita akan handle di FAB
     if (index != 2) {
+      // Index 2 (FAB) ditangani terpisah
       setState(() {
         _selectedIndex = index;
       });
+      // Navigasi ke halaman lain jika diperlukan (misal pakai Navigator)
+      // switch (index) {
+      //   case 1: Navigator.push(context, MaterialPageRoute(builder: (_) => StatsPage())); break;
+      //   case 3: Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotPage())); break;
+      //   case 4: Navigator.push(context, MaterialPageRoute(builder: (_) => ProfilePage())); break;
+      // }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: _widgetOptions.elementAt(
-          _selectedIndex,
-        ), // Tampilkan konten sesuai index
+      // Tampilkan konten halaman yang sesuai dengan index terpilih
+      body: IndexedStack(
+        // Gunakan IndexedStack agar state halaman tidak hilang saat ganti tab
+        index: _selectedIndex,
+        children: _widgetOptions,
       ),
-      // Tombol Tambah (Floating Action Button) di tengah
+
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+          // Navigasi ke AddEntryPage saat FAB ditekan
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const AddEntryPage(),
-            ), // <-- Arahkan ke AddEntryPage
+            MaterialPageRoute(builder: (context) => const AddEntryPage()),
           );
         },
-        backgroundColor: const Color(0xFF3B82F6), // Warna biru
+        backgroundColor: const Color(0xFF3B82F6),
         foregroundColor: Colors.white,
         elevation: 2.0,
-        shape: const CircleBorder(), // Pastikan bulat
+        shape: const CircleBorder(),
         child: const Icon(Icons.add, size: 30),
       ),
-      floatingActionButtonLocation:
-          FloatingActionButtonLocation.centerDocked, // Posisi di tengah dock
-      // Bottom Navigation Bar
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+
       bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(), // Bentuk lengkung untuk FAB
-        notchMargin: 8.0, // Jarak antara FAB dan BottomAppBar
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8.0,
         child: SizedBox(
-          // Dibungkus SizedBox agar bisa atur height
-          height: 60.0, // Tinggi BottomNavigationBar
+          height: 60.0,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              // Sisi Kiri
               Row(
+                // Item Kiri
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  _buildBottomNavItem(Icons.home, 'Home', 0),
+                  _buildBottomNavItem(
+                    Icons.home_filled,
+                    'Home',
+                    0,
+                  ), // Icon filled jika aktif
                   _buildBottomNavItem(Icons.bar_chart, 'Stats', 1),
                 ],
               ),
-              // Sisi Kanan (setelah FAB)
               Row(
+                // Item Kanan
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  _buildBottomNavItem(Icons.chat_bubble_outline, 'Chatbot', 3),
-                  _buildBottomNavItem(Icons.person_outline, 'Profile', 4),
+                  _buildBottomNavItem(
+                    Icons.chat_bubble,
+                    'Chatbot',
+                    3,
+                  ), // Icon filled jika aktif
+                  _buildBottomNavItem(
+                    Icons.person,
+                    'Profile',
+                    4,
+                  ), // Icon filled jika aktif
                 ],
               ),
             ],
@@ -107,9 +118,25 @@ class _HomePageState extends State<HomePage> {
   // Helper widget untuk membuat item BottomNavigationBar
   Widget _buildBottomNavItem(IconData icon, String label, int index) {
     final bool isSelected = _selectedIndex == index;
-    final Color color = isSelected
-        ? const Color(0xFF3B82F6)
-        : Colors.grey; // Warna biru jika aktif, abu jika tidak
+    final Color color = isSelected ? const Color(0xFF3B82F6) : Colors.grey;
+    // Gunakan ikon filled jika terpilih (opsional, sesuaikan nama ikonnya)
+    IconData displayIcon = icon;
+    if (isSelected) {
+      switch (index) {
+        case 0:
+          displayIcon = Icons.home_filled;
+          break;
+        case 1:
+          displayIcon = Icons.bar_chart;
+          break; // Ganti jika ada versi filled
+        case 3:
+          displayIcon = Icons.chat_bubble;
+          break; // Ganti jika ada versi filled
+        case 4:
+          displayIcon = Icons.person;
+          break; // Ganti jika ada versi filled
+      }
+    }
 
     return MaterialButton(
       minWidth: 40,
@@ -117,7 +144,7 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          Icon(icon, color: color),
+          Icon(displayIcon, color: color), // Gunakan displayIcon
           Text(label, style: TextStyle(color: color, fontSize: 12)),
         ],
       ),
@@ -125,7 +152,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// Widget terpisah untuk konten Halaman Home agar lebih rapi
+// Widget terpisah untuk konten Halaman Home
 class HomeScreenContent extends StatelessWidget {
   const HomeScreenContent({super.key});
 
@@ -168,119 +195,148 @@ class HomeScreenContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF3B82F6);
-    final user = FirebaseAuth.instance.currentUser; // Ambil user saat ini
+    final user = FirebaseAuth.instance.currentUser;
+    // Coba ambil nama dari profil, fallback ke bagian email, fallback lagi ke default
     final String userName =
         user?.displayName ?? user?.email?.split('@').first ?? "Pengguna";
 
-    // Format tanggal untuk tampilan di card
-    final DateFormat cardDateFormat = DateFormat('d MMMM yyyy', 'id_ID');
+    // Format tanggal BARU untuk tampilan di card (termasuk jam:menit)
+    final DateFormat cardDateTimeFormat = DateFormat(
+      'd MMMM yyyy, HH:mm',
+      'id_ID',
+    );
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
-          // Bungkus Column dengan SingleChildScrollView
+        // Gunakan ListView agar seluruh halaman bisa di-scroll jika konten panjang
+        child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 25.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ... (Greeting & Recommendation Card tetap sama)
-              Text('Halo, ${userName.split(' ').first}!' /* ... style ... */),
-              const SizedBox(height: 30),
-              const Text('Rekomendasi hari ini' /* ... style ... */),
-              const SizedBox(height: 10),
-              Container(/* ... Recommendation Card ... */),
-              const SizedBox(height: 35),
+          children: [
+            // Greeting Text
+            Text(
+              'Halo, ${userName.split(' ').first}!',
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 30),
 
-              const Text(
-                'Entri Mood & Jurnal',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: primaryBlue,
-                ),
+            // Recommendation Card Title
+            const Text(
+              'Rekomendasi hari ini',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: primaryBlue,
               ),
-              const SizedBox(height: 15),
+            ),
+            const SizedBox(height: 10),
 
-              // StreamBuilder untuk menampilkan entri dari Firestore
-              StreamBuilder<QuerySnapshot>(
-                // Query: ambil data dari 'mood_entries', filter by userId, urutkan descending by timestamp
-                stream: FirebaseFirestore.instance
-                    .collection('mood_entries')
-                    .where(
-                      'userId',
-                      isEqualTo: user?.uid,
-                    ) // Filter berdasarkan user ID
-                    .orderBy(
-                      'timestamp',
-                      descending: true,
-                    ) // Urutkan terbaru di atas
-                    .snapshots(), // Dapatkan stream data
-                builder: (context, snapshot) {
-                  // Tampilkan loading jika masih menunggu data
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  // Tampilkan pesan error jika terjadi masalah
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
-                  // Tampilkan pesan jika tidak ada data
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 30.0),
-                        child: Text(
-                          'Belum ada entri.\nYuk, tambahkan mood hari ini!',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey),
-                        ),
+            // Recommendation Card (Statis)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9FF),
+                borderRadius: BorderRadius.circular(15.0),
+                border: Border.all(color: const Color(0xFFE0F2FE), width: 1.0),
+              ),
+              child: const Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Coba luangkan waktu istirahat sejenak dan nikmati hal kecil hari ini',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.black87,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Text('📝', style: TextStyle(fontSize: 20)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 35),
+
+            // Mood & Journal Entry Title
+            const Text(
+              'Entri Mood & Jurnal',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: primaryBlue,
+              ),
+            ),
+            const SizedBox(height: 15),
+
+            // StreamBuilder untuk menampilkan entri dari Firestore
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('mood_entries')
+                  .where('userId', isEqualTo: user?.uid)
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 30.0),
+                      child: Text(
+                        'Belum ada entri.\nYuk, tambahkan mood hari ini!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
+                      ),
+                    ),
+                  );
+                }
+
+                // Jika ada data, tampilkan dalam Column (karena sudah di dalam ListView)
+                final entries = snapshot.data!.docs;
+                return Column(
+                  // Ganti ListView.builder menjadi Column
+                  children: entries.map((doc) {
+                    final entry = doc.data() as Map<String, dynamic>;
+                    final mood = entry['mood'] as String? ?? 'Tidak Diketahui';
+                    final journal = entry['journal'] as String? ?? '';
+                    final timestamp = entry['timestamp'] as Timestamp?;
+                    final dateTimeString = timestamp != null
+                        ? cardDateTimeFormat.format(timestamp.toDate())
+                        : 'Waktu tidak valid';
+                    final borderColor = _getBorderColor(mood);
+                    final emoji = _getEmoji(mood);
+
+                    // Beri jarak antar card
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 15.0),
+                      child: _buildMoodCard(
+                        emoji: emoji,
+                        moodText: mood,
+                        description: journal.isNotEmpty
+                            ? journal
+                            : 'Tidak ada catatan jurnal.',
+                        date: dateTimeString, // Sudah termasuk waktu
+                        borderColor: borderColor,
                       ),
                     );
-                  }
-
-                  // Jika ada data, tampilkan dalam bentuk list
-                  final entries = snapshot.data!.docs;
-                  return ListView.builder(
-                    shrinkWrap:
-                        true, // Agar ListView menyesuaikan tinggi kontennya
-                    physics:
-                        const NeverScrollableScrollPhysics(), // Nonaktifkan scroll internal ListView
-                    itemCount: entries.length,
-                    itemBuilder: (context, index) {
-                      final entry =
-                          entries[index].data() as Map<String, dynamic>;
-                      final mood =
-                          entry['mood'] as String? ?? 'Tidak Diketahui';
-                      final journal = entry['journal'] as String? ?? '';
-                      final timestamp = entry['timestamp'] as Timestamp?;
-                      final dateString = timestamp != null
-                          ? cardDateFormat.format(timestamp.toDate())
-                          : 'Tanggal tidak valid';
-                      final borderColor = _getBorderColor(mood);
-                      final emoji = _getEmoji(mood);
-
-                      // Gunakan _buildMoodCard yang sudah ada
-                      return Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: 15.0,
-                        ), // Beri jarak antar card
-                        child: _buildMoodCard(
-                          emoji: emoji,
-                          moodText: mood,
-                          description: journal.isNotEmpty
-                              ? journal
-                              : 'Tidak ada catatan jurnal.', // Tampilkan placeholder jika jurnal kosong
-                          date: dateString,
-                          borderColor: borderColor,
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ],
-          ),
+                  }).toList(), // Ubah hasil map menjadi list
+                );
+              },
+            ),
+            const SizedBox(
+              height: 80,
+            ), // Beri space di bawah agar tidak tertutup FAB
+          ],
         ),
       ),
     );
@@ -291,7 +347,7 @@ class HomeScreenContent extends StatelessWidget {
     required String emoji,
     required String moodText,
     required String description,
-    required String date,
+    required String date, // Sekarang berisi tanggal dan waktu
     required Color borderColor,
   }) {
     return Container(
@@ -299,7 +355,7 @@ class HomeScreenContent extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15.0),
-        border: Border.all(color: borderColor, width: 1.5), // Border berwarna
+        border: Border.all(color: borderColor, width: 1.5),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
@@ -311,10 +367,8 @@ class HomeScreenContent extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Emoji (atau Gambar)
           Text(emoji, style: const TextStyle(fontSize: 40)),
           const SizedBox(width: 15),
-          // Teks Mood, Deskripsi, Tanggal
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,20 +381,35 @@ class HomeScreenContent extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
+                // Tampilkan deskripsi hanya jika ada
+                if (description.isNotEmpty &&
+                    description != 'Tidak ada catatan jurnal.')
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 3.0,
+                      bottom: 8.0,
+                    ), // Beri padding atas bawah
+                    child: Text(
+                      description,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  )
+                else
+                  const SizedBox(
+                    height: 8,
+                  ), // Beri space jika tidak ada deskripsi
                 Text(
-                  description,
-                  style: const TextStyle(fontSize: 14, color: Colors.black54),
-                  maxLines: 2, // Batasi deskripsi jika terlalu panjang
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  date,
+                  date, // Tampilkan tanggal dan waktu
                   style: TextStyle(
                     fontSize: 12,
-                    color: borderColor,
+                    color: Colors.grey[600],
                     fontWeight: FontWeight.w500,
-                  ), // Warna tanggal sesuai border
+                  ), // Warna sedikit diubah
                 ),
               ],
             ),
@@ -349,4 +418,4 @@ class HomeScreenContent extends StatelessWidget {
       ),
     );
   }
-}
+} // Akhir HomeScreenContent
