@@ -2,12 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'add_entry_page.dart'; // Import halaman Add Entry
-
-// Import halaman lain jika sudah dibuat (atau biarkan placeholder)
-// import 'stats_page.dart';
-// import 'chatbot_page.dart';
-// import 'profile_page.dart';
+import 'add_entry_page.dart';
+import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,16 +15,14 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0; // Index untuk BottomNavigationBar
 
-  // Daftar halaman/konten untuk BottomNavigationBar
-  // Ganti Text placeholder dengan widget halaman sebenarnya nanti
-  static const List<Widget> _widgetOptions = <Widget>[
+  static List<Widget> _widgetOptions = <Widget>[
     HomeScreenContent(), // Konten Halaman Home (Index 0)
     Scaffold(body: Center(child: Text('Halaman Stats'))), // Placeholder
     Scaffold(
       body: Center(child: Text('Placeholder FAB')),
     ), // Index 2 tidak dipakai langsung
     Scaffold(body: Center(child: Text('Halaman Chatbot'))), // Placeholder
-    Scaffold(body: Center(child: Text('Halaman Profile'))), // Placeholder
+    ProfilePage(),
   ];
 
   void _onItemTapped(int index) {

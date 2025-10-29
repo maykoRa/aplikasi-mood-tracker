@@ -28,7 +28,6 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       debugShowCheckedModeBanner: false,
-      home: const SplashScreen(), // Nanti kita ganti ini dengan AuthWrapper
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -39,6 +38,7 @@ class MyApp extends StatelessWidget {
         // Locale('en', 'US'), // Tambahkan English jika perlu fallback
       ],
       locale: const Locale('id', 'ID'),
+      home: const SplashScreen(),
     );
   }
 }

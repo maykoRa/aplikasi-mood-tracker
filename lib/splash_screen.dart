@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'login_page.dart';
+import 'auth_wrapper.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,11 +13,20 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 5), () {
+    _navigateToAuthWrapper();
+  }
+
+  void _navigateToAuthWrapper() async {
+    // Beri jeda singkat, misal 1 detik (sesuaikan durasinya)
+    await Future.delayed(const Duration(seconds: 1));
+
+    // Pastikan widget masih ada sebelum navigasi
+    if (mounted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginPage()),
+        // Navigasi ke AuthWrapper setelah delay
+        MaterialPageRoute(builder: (context) => const AuthWrapper()),
       );
-    });
+    }
   }
 
   @override
