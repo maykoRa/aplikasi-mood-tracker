@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'add_entry_page.dart';
+import 'entry_detail_page.dart'; // TAMBAHAN
 import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -13,51 +14,31 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _selectedIndex = 0; // Index untuk BottomNavigationBar
+  int _selectedIndex = 0;
 
   static List<Widget> _widgetOptions = <Widget>[
-    HomeScreenContent(), // Konten Halaman Home (Index 0)
-    Scaffold(body: Center(child: Text('Halaman Stats'))), // Placeholder
-    Scaffold(
-      body: Center(child: Text('Placeholder FAB')),
-    ), // Index 2 tidak dipakai langsung
-    Scaffold(body: Center(child: Text('Halaman Chatbot'))), // Placeholder
-    ProfilePage(),
+    const HomeScreenContent(),
+    Scaffold(body: Center(child: Text('Halaman Stats'))),
+    Scaffold(body: Center(child: Text('Placeholder FAB'))),
+    Scaffold(body: Center(child: Text('Halaman Chatbot'))),
+    const ProfilePage(),
   ];
 
   void _onItemTapped(int index) {
     if (index != 2) {
-      // Index 2 (FAB) ditangani terpisah
-      setState(() {
-        _selectedIndex = index;
-      });
-      // Navigasi ke halaman lain jika diperlukan (misal pakai Navigator)
-      // switch (index) {
-      //   case 1: Navigator.push(context, MaterialPageRoute(builder: (_) => StatsPage())); break;
-      //   case 3: Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotPage())); break;
-      //   case 4: Navigator.push(context, MaterialPageRoute(builder: (_) => ProfilePage())); break;
-      // }
+      setState(() => _selectedIndex = index);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Tampilkan konten halaman yang sesuai dengan index terpilih
-      body: IndexedStack(
-        // Gunakan IndexedStack agar state halaman tidak hilang saat ganti tab
-        index: _selectedIndex,
-        children: _widgetOptions,
-      ),
-
+      body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Navigasi ke AddEntryPage saat FAB ditekan
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddEntryPage()),
-          );
-        },
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AddEntryPage()),
+        ),
         backgroundColor: const Color(0xFF3B82F6),
         foregroundColor: Colors.white,
         elevation: 2.0,
@@ -65,7 +46,6 @@ class _HomePageState extends State<HomePage> {
         child: const Icon(Icons.add, size: 30),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
@@ -73,33 +53,19 @@ class _HomePageState extends State<HomePage> {
           height: 60.0,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
+            children: [
               Row(
-                // Item Kiri
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  _buildBottomNavItem(
-                    Icons.home_filled,
-                    'Home',
-                    0,
-                  ), // Icon filled jika aktif
+                children: [
+                  _buildBottomNavItem(Icons.home, 'Home', 0),
                   _buildBottomNavItem(Icons.bar_chart, 'Stats', 1),
                 ],
               ),
               Row(
-                // Item Kanan
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  _buildBottomNavItem(
-                    Icons.chat_bubble,
-                    'Chatbot',
-                    3,
-                  ), // Icon filled jika aktif
-                  _buildBottomNavItem(
-                    Icons.person,
-                    'Profile',
-                    4,
-                  ), // Icon filled jika aktif
+                children: [
+                  _buildBottomNavItem(Icons.chat_bubble, 'Chatbot', 3),
+                  _buildBottomNavItem(Icons.person, 'Profile', 4),
                 ],
               ),
             ],
@@ -109,11 +75,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Helper widget untuk membuat item BottomNavigationBar
   Widget _buildBottomNavItem(IconData icon, String label, int index) {
     final bool isSelected = _selectedIndex == index;
     final Color color = isSelected ? const Color(0xFF3B82F6) : Colors.grey;
-    // Gunakan ikon filled jika terpilih (opsional, sesuaikan nama ikonnya)
     IconData displayIcon = icon;
     if (isSelected) {
       switch (index) {
@@ -122,13 +86,13 @@ class _HomePageState extends State<HomePage> {
           break;
         case 1:
           displayIcon = Icons.bar_chart;
-          break; // Ganti jika ada versi filled
+          break;
         case 3:
           displayIcon = Icons.chat_bubble;
-          break; // Ganti jika ada versi filled
+          break;
         case 4:
           displayIcon = Icons.person;
-          break; // Ganti jika ada versi filled
+          break;
       }
     }
 
@@ -137,8 +101,8 @@ class _HomePageState extends State<HomePage> {
       onPressed: () => _onItemTapped(index),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Icon(displayIcon, color: color), // Gunakan displayIcon
+        children: [
+          Icon(displayIcon, color: color),
           Text(label, style: TextStyle(color: color, fontSize: 12)),
         ],
       ),
@@ -146,11 +110,46 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// Widget terpisah untuk konten Halaman Home
-class HomeScreenContent extends StatelessWidget {
+class HomeScreenContent extends StatefulWidget {
   const HomeScreenContent({super.key});
 
-  // Helper untuk menentukan warna border berdasarkan mood text
+  @override
+  State<HomeScreenContent> createState() => _HomeScreenContentState();
+}
+
+class _HomeScreenContentState extends State<HomeScreenContent> {
+  String? _todayRecommendation;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTodayRecommendation();
+  }
+
+  Future<void> _loadTodayRecommendation() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final summaryDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('summary')
+          .doc('daily')
+          .get();
+
+      if (summaryDoc.exists) {
+        setState(() {
+          _todayRecommendation =
+              summaryDoc.data()?['recommendation'] ??
+              'Coba luangkan waktu istirahat sejenak dan nikmati hal kecil hari ini';
+        });
+      }
+    } catch (e) {
+      print('Error loading summary: $e');
+    }
+  }
+
   Color _getBorderColor(String mood) {
     switch (mood) {
       case 'Sangat Baik':
@@ -168,21 +167,20 @@ class HomeScreenContent extends StatelessWidget {
     }
   }
 
-  // Helper untuk mendapatkan emoji berdasarkan mood text
   String _getEmoji(String mood) {
     switch (mood) {
       case 'Sangat Baik':
-        return '😄';
+        return 'Sangat Baik';
       case 'Baik':
-        return '😊';
+        return 'Baik';
       case 'Biasa Saja':
-        return '😐';
+        return 'Biasa Saja';
       case 'Buruk':
-        return '😟';
+        return 'Buruk';
       case 'Sangat Buruk':
-        return '😠';
+        return 'Sangat Buruk';
       default:
-        return '❓';
+        return 'Tidak Diketahui';
     }
   }
 
@@ -190,11 +188,8 @@ class HomeScreenContent extends StatelessWidget {
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF3B82F6);
     final user = FirebaseAuth.instance.currentUser;
-    // Coba ambil nama dari profil, fallback ke bagian email, fallback lagi ke default
     final String userName =
         user?.displayName ?? user?.email?.split('@').first ?? "Pengguna";
-
-    // Format tanggal BARU untuk tampilan di card (termasuk jam:menit)
     final DateFormat cardDateTimeFormat = DateFormat(
       'd MMMM yyyy, HH:mm',
       'id_ID',
@@ -203,18 +198,16 @@ class HomeScreenContent extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        // Gunakan ListView agar seluruh halaman bisa di-scroll jika konten panjang
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 25.0),
           children: [
-            // Greeting Text
             Text(
               'Halo, ${userName.split(' ').first}!',
               style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 30),
 
-            // Recommendation Card Title
+            // Rekomendasi Hari Ini (Dynamic)
             const Text(
               'Rekomendasi hari ini',
               style: TextStyle(
@@ -224,8 +217,6 @@ class HomeScreenContent extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-
-            // Recommendation Card (Statis)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
               decoration: BoxDecoration(
@@ -233,26 +224,27 @@ class HomeScreenContent extends StatelessWidget {
                 borderRadius: BorderRadius.circular(15.0),
                 border: Border.all(color: const Color(0xFFE0F2FE), width: 1.0),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Expanded(
                     child: Text(
-                      'Coba luangkan waktu istirahat sejenak dan nikmati hal kecil hari ini',
-                      style: TextStyle(
+                      _todayRecommendation ??
+                          'Coba luangkan waktu istirahat sejenak dan nikmati hal kecil hari ini',
+                      style: const TextStyle(
                         fontSize: 15,
                         color: Colors.black87,
                         height: 1.4,
                       ),
                     ),
                   ),
-                  SizedBox(width: 10),
-                  Text('📝', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 10),
+                  const Text('Pen', style: TextStyle(fontSize: 20)),
                 ],
               ),
             ),
             const SizedBox(height: 35),
 
-            // Mood & Journal Entry Title
+            // Entri Mood & Jurnal
             const Text(
               'Entri Mood & Jurnal',
               style: TextStyle(
@@ -263,7 +255,7 @@ class HomeScreenContent extends StatelessWidget {
             ),
             const SizedBox(height: 15),
 
-            // StreamBuilder untuk menampilkan entri dari Firestore
+            // StreamBuilder
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('mood_entries')
@@ -295,22 +287,20 @@ class HomeScreenContent extends StatelessWidget {
                   );
                 }
 
-                // Jika ada data, tampilkan dalam Column (karena sudah di dalam ListView)
                 final entries = snapshot.data!.docs;
                 return Column(
-                  // Ganti ListView.builder menjadi Column
                   children: entries.map((doc) {
                     final entry = doc.data() as Map<String, dynamic>;
                     final mood = entry['mood'] as String? ?? 'Tidak Diketahui';
                     final journal = entry['journal'] as String? ?? '';
                     final timestamp = entry['timestamp'] as Timestamp?;
+                    final recommendation = entry['recommendation'] as String?;
                     final dateTimeString = timestamp != null
                         ? cardDateTimeFormat.format(timestamp.toDate())
                         : 'Waktu tidak valid';
                     final borderColor = _getBorderColor(mood);
                     final emoji = _getEmoji(mood);
 
-                    // Beri jarak antar card
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 15.0),
                       child: _buildMoodCard(
@@ -319,97 +309,154 @@ class HomeScreenContent extends StatelessWidget {
                         description: journal.isNotEmpty
                             ? journal
                             : 'Tidak ada catatan jurnal.',
-                        date: dateTimeString, // Sudah termasuk waktu
+                        date: dateTimeString,
                         borderColor: borderColor,
+                        recommendation: recommendation,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EntryDetailPage(entryId: doc.id),
+                          ),
+                        ),
                       ),
                     );
-                  }).toList(), // Ubah hasil map menjadi list
+                  }).toList(),
                 );
               },
             ),
-            const SizedBox(
-              height: 80,
-            ), // Beri space di bawah agar tidak tertutup FAB
+            const SizedBox(height: 80),
           ],
         ),
       ),
     );
   }
 
-  // Helper widget untuk membuat card entri mood
+  // CARD DENGAN REKOMENDASI + LOADING + TAP
   Widget _buildMoodCard({
     required String emoji,
     required String moodText,
     required String description,
-    required String date, // Sekarang berisi tanggal dan waktu
+    required String date,
     required Color borderColor,
+    String? recommendation,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15.0),
-        border: Border.all(color: borderColor, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 40)),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15.0),
+          border: Border.all(color: borderColor, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 5,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Text(
-                  moodText,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                // Tampilkan deskripsi hanya jika ada
-                if (description.isNotEmpty &&
-                    description != 'Tidak ada catatan jurnal.')
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 3.0,
-                      bottom: 8.0,
-                    ), // Beri padding atas bawah
-                    child: Text(
-                      description,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.black54,
+                Text(emoji, style: const TextStyle(fontSize: 40)),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        moodText,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  )
-                else
-                  const SizedBox(
-                    height: 8,
-                  ), // Beri space jika tidak ada deskripsi
-                Text(
-                  date, // Tampilkan tanggal dan waktu
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ), // Warna sedikit diubah
+                      const SizedBox(height: 3),
+                      if (description.isNotEmpty &&
+                          description != 'Tidak ada catatan jurnal.')
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3.0, bottom: 8.0),
+                          child: Text(
+                            description,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black54,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      Text(
+                        date,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
+
+            // REKOMENDASI DARI AI
+            if (recommendation != null && recommendation.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Text(
+                  recommendation,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color.fromARGB(255, 66, 132, 197),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'AI sedang menganalisis...',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
-} // Akhir HomeScreenContent
+}

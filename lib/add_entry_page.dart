@@ -1,11 +1,10 @@
-// lib/add_entry_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'entry_detail_page.dart'; // TAMBAHAN: Import halaman detail
 
 class AddEntryPage extends StatefulWidget {
   const AddEntryPage({super.key});
@@ -20,7 +19,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
   bool _isLoading = false;
 
   // State untuk Tanggal & Waktu Entri
-  DateTime _selectedDateTime = DateTime.now(); // Default ke waktu sekarang
+  DateTime _selectedDateTime = DateTime.now();
 
   // State Speech-to-Text
   final SpeechToText _speechToText = SpeechToText();
@@ -80,7 +79,6 @@ class _AddEntryPageState extends State<AddEntryPage> {
   /// Memulai sesi rekaman suara
   void _startListening() async {
     if (!_speechEnabled) {
-      print("Speech recognition not initialized or available.");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Fitur suara tidak tersedia saat ini.')),
       );
@@ -90,9 +88,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
     await _speechToText.listen(
       onResult: _onSpeechResult,
       localeId: _localeId,
-      // Hapus pauseFor agar stop hanya manual
-      // pauseFor: const Duration(seconds: 5),
-      listenFor: const Duration(minutes: 1), // Batas waktu rekam
+      listenFor: const Duration(minutes: 1),
       listenMode: ListenMode.confirmation,
     );
     if (mounted) setState(() {});
@@ -104,32 +100,31 @@ class _AddEntryPageState extends State<AddEntryPage> {
     if (mounted) setState(() {});
   }
 
-  /// Callback yang dipanggil saat ada hasil dari rekaman suara
+  /// Callback hasil rekaman suara
   void _onSpeechResult(SpeechRecognitionResult result) {
     setState(() {
       final separator =
           _textBeforeListening.isEmpty || _textBeforeListening.endsWith(' ')
-          ? ''
-          : ' ';
+              ? ''
+              : ' ';
       String recognized = result.recognizedWords;
       _journalController.text = _textBeforeListening + separator + recognized;
       _journalController.selection = TextSelection.fromPosition(
         TextPosition(offset: _journalController.text.length),
       );
       if (result.finalResult) {
-        _textBeforeListening =
-            _journalController.text; // Update base text on final result
+        _textBeforeListening = _journalController.text;
       }
     });
   }
 
-  // Fungsi untuk memilih tanggal
+  // Pilih Tanggal
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDateTime,
       firstDate: DateTime(2000),
-      lastDate: DateTime.now(), // Hanya bisa pilih sampai hari ini
+      lastDate: DateTime.now(),
       locale: const Locale('id', 'ID'),
     );
     if (picked != null && picked != _selectedDateTime) {
@@ -141,9 +136,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
         _selectedDateTime.minute,
       );
       if (newDateTime.isAfter(DateTime.now())) {
-        setState(() {
-          _selectedDateTime = DateTime.now();
-        });
+        setState(() => _selectedDateTime = DateTime.now());
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Tidak bisa memilih waktu di masa depan.'),
@@ -151,14 +144,12 @@ class _AddEntryPageState extends State<AddEntryPage> {
           ),
         );
       } else {
-        setState(() {
-          _selectedDateTime = newDateTime;
-        });
+        setState(() => _selectedDateTime = newDateTime);
       }
     }
   }
 
-  // Fungsi untuk memilih waktu
+  // Pilih Waktu
   Future<void> _selectTime(BuildContext context) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -173,9 +164,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
         picked.minute,
       );
       if (newDateTime.isAfter(DateTime.now())) {
-        setState(() {
-          _selectedDateTime = DateTime.now();
-        });
+        setState(() => _selectedDateTime = DateTime.now());
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Tidak bisa memilih waktu di masa depan.'),
@@ -183,18 +172,15 @@ class _AddEntryPageState extends State<AddEntryPage> {
           ),
         );
       } else {
-        setState(() {
-          _selectedDateTime = newDateTime;
-        });
+        setState(() => _selectedDateTime = newDateTime);
       }
     }
   }
 
-  // --- Fungsi Simpan Entri ---
+  // SIMPAN ENTRI + NAVIGASI KE DETAIL
   Future<void> _saveEntry() async {
     // Validasi Mood
     if (_selectedMood == null) {
-      // Perbaikan 1: Tambahkan SnackBar di sini
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Silakan pilih mood Anda hari ini'),
@@ -207,20 +193,17 @@ class _AddEntryPageState extends State<AddEntryPage> {
     // Validasi User
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Perbaikan 2: Tambahkan SnackBar di sini
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('User tidak ditemukan, silakan login ulang'),
           backgroundColor: Colors.red,
         ),
       );
-      // Mungkin tambahkan navigasi ke login page di sini jika perlu
       return;
     }
 
     // Validasi Waktu
     if (_selectedDateTime.isAfter(DateTime.now())) {
-      // Perbaikan 3: Tambahkan SnackBar di sini
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -229,44 +212,47 @@ class _AddEntryPageState extends State<AddEntryPage> {
           backgroundColor: Colors.orange,
         ),
       );
-      setState(() {
-        _selectedDateTime = DateTime.now(); // Reset ke waktu sekarang
-      });
-      // Kita bisa hentikan simpan di sini agar user sadar waktunya direset,
-      // atau biarkan lanjut menyimpan dengan waktu yang sudah direset.
-      // Untuk sekarang, kita biarkan lanjut.
-      // return; // Uncomment jika ingin stop
+      setState(() => _selectedDateTime = DateTime.now());
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
+
     try {
-      await FirebaseFirestore.instance.collection('mood_entries').add({
+      // Simpan dan dapatkan ID dokumen
+      final docRef = await FirebaseFirestore.instance.collection('mood_entries').add({
         'userId': user.uid,
         'mood': _selectedMood!,
         'journal': _journalController.text.trim(),
-        'timestamp': Timestamp.fromDate(
-          _selectedDateTime,
-        ), // Gunakan waktu terpilih
-        'date': DateFormat(
-          'yyyy-MM-dd',
-        ).format(_selectedDateTime), // Gunakan waktu terpilih
+        'timestamp': Timestamp.fromDate(_selectedDateTime),
+        'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
       });
-      if (mounted) Navigator.pop(context);
+
+      final entryId = docRef.id;
+
+      // Langsung ke halaman detail
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EntryDetailPage(entryId: entryId),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
-        /* ... show error snackbar ... */
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menyimpan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
-  // --- Akhir Fungsi Simpan Entri ---
 
   @override
   Widget build(BuildContext context) {
@@ -295,15 +281,13 @@ class _AddEntryPageState extends State<AddEntryPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Tampilkan Tanggal & Waktu yang bisa dipilih
+              // Tanggal & Waktu
               InkWell(
                 onTap: _isLoading
                     ? null
                     : () async {
                         await _selectDate(context);
-                        if (mounted) {
-                          await _selectTime(context);
-                        }
+                        if (mounted) await _selectTime(context);
                       },
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -332,7 +316,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
               ),
               const SizedBox(height: 20),
 
-              // Pilihan Mood (Emoji)
+              // Pilihan Mood
               Wrap(
                 alignment: WrapAlignment.spaceAround,
                 spacing: 10.0,
@@ -342,11 +326,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
                   return GestureDetector(
                     onTap: _isLoading
                         ? null
-                        : () {
-                            setState(() {
-                              _selectedMood = mood['text'];
-                            });
-                          },
+                        : () => setState(() => _selectedMood = mood['text']),
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
@@ -355,9 +335,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
                             : Colors.transparent,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isSelected
-                              ? primaryBlue
-                              : Colors.grey.shade300,
+                          color: isSelected ? primaryBlue : Colors.grey.shade300,
                           width: 1.5,
                         ),
                       ),
@@ -377,7 +355,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
               ),
               const SizedBox(height: 10),
 
-              // Jurnal TextField dengan Suffix Icon Mic
+              // Jurnal + Mic
               TextField(
                 controller: _journalController,
                 enabled: !_isLoading,
@@ -417,9 +395,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
                     color: _speechToText.isListening ? Colors.red : primaryBlue,
                     tooltip: 'Tekan untuk bicara',
                     onPressed: _speechEnabled && !_isLoading
-                        ? (_speechToText.isListening
-                              ? _stopListening
-                              : _startListening)
+                        ? (_speechToText.isListening ? _stopListening : _startListening)
                         : null,
                   ),
                 ),
