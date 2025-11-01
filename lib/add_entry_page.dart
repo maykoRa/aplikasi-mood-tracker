@@ -5,11 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'home_page.dart'; // UBAH: Import HomePage
+import 'home_page.dart';
 
 class AddEntryPage extends StatefulWidget {
   const AddEntryPage({super.key});
-
   @override
   State<AddEntryPage> createState() => _AddEntryPageState();
 }
@@ -18,11 +17,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
   final TextEditingController _journalController = TextEditingController();
   String? _selectedMood;
   bool _isLoading = false;
-
-  // State untuk Tanggal & Waktu Entri
   DateTime _selectedDateTime = DateTime.now();
-
-  // State Speech-to-Text
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   String _localeId = 'id_ID';
@@ -49,7 +44,6 @@ class _AddEntryPageState extends State<AddEntryPage> {
     super.dispose();
   }
 
-  /// Inisialisasi plugin speech_to_text
   void _initSpeech() async {
     try {
       _speechEnabled = await _speechToText.initialize(
@@ -77,7 +71,6 @@ class _AddEntryPageState extends State<AddEntryPage> {
     }
   }
 
-  /// Memulai sesi rekaman suara
   void _startListening() async {
     if (!_speechEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -95,13 +88,11 @@ class _AddEntryPageState extends State<AddEntryPage> {
     if (mounted) setState(() {});
   }
 
-  /// Menghentikan sesi rekaman suara secara manual
   void _stopListening() async {
     await _speechToText.stop();
     if (mounted) setState(() {});
   }
 
-  /// Callback hasil rekaman suara
   void _onSpeechResult(SpeechRecognitionResult result) {
     setState(() {
       final separator =
@@ -119,7 +110,6 @@ class _AddEntryPageState extends State<AddEntryPage> {
     });
   }
 
-  // Pilih Tanggal
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -150,7 +140,6 @@ class _AddEntryPageState extends State<AddEntryPage> {
     }
   }
 
-  // Pilih Waktu
   Future<void> _selectTime(BuildContext context) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -178,9 +167,9 @@ class _AddEntryPageState extends State<AddEntryPage> {
     }
   }
 
-  // SIMPAN ENTRI DAN NAVIGASI KE HOME DENGAN PESAN DIALOG
+  // MODIFIKASI: FUNGSI INI AKAN MENUNGGU REFLEKSI DARI CLOUD FUNCTION
   Future<void> _saveEntry() async {
-    // Validasi
+    // Validasi (tidak berubah)
     if (_selectedMood == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -190,7 +179,6 @@ class _AddEntryPageState extends State<AddEntryPage> {
       );
       return;
     }
-
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -208,29 +196,60 @@ class _AddEntryPageState extends State<AddEntryPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Simpan entri ke Firestore
-      await FirebaseFirestore.instance.collection('mood_entries').add({
-        'userId': user.uid,
-        'mood': _selectedMood!,
-        'journal': _journalController.text.trim(),
-        'timestamp': Timestamp.fromDate(_selectedDateTime),
-        'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
-        // 'reflection' akan diisi oleh Cloud Function generateReflection
-      });
+      // 1. Simpan entri dan Dapatkan Reference dokumen
+      final newEntryRef = await FirebaseFirestore.instance
+          .collection('mood_entries')
+          .add({
+            'userId': user.uid,
+            'mood': _selectedMood!,
+            'journal': _journalController.text.trim(),
+            'timestamp': Timestamp.fromDate(_selectedDateTime),
+            'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
+            'reflection': null, // Inisialisasi field untuk dipantau
+          });
 
-      // Navigasi ke HomePage dan kirim pesan status untuk dialog
+      // 2. TUNGGU Refleksi AI terisi dengan timeout 30 detik
+      String aiReflection =
+          'Maaf, refleksi AI memakan waktu terlalu lama (>30 detik). Silakan cek detail entri Anda nanti.';
+      const timeoutDuration = Duration(seconds: 30);
+
+      try {
+        final reflectionSnapshot = await Future.any([
+          // Tunggu hingga field 'reflection' terisi
+          newEntryRef.snapshots().firstWhere((doc) {
+            final data = doc.data();
+            return data != null &&
+                data.containsKey('reflection') &&
+                data['reflection'] != null;
+          }),
+          // Timeout
+          Future.delayed(timeoutDuration).then((_) => null),
+        ]);
+
+        if (reflectionSnapshot != null) {
+          aiReflection = reflectionSnapshot.data()!['reflection'] as String;
+          // Pesan khusus jika AI gagal (Error/Maaf)
+          if (aiReflection.startsWith('Error:') ||
+              aiReflection.startsWith('Maaf,')) {
+            aiReflection =
+                'Entri berhasil disimpan, namun: \n\n**' + aiReflection + '**';
+          }
+        }
+      } catch (e) {
+        print('Error waiting for reflection: $e');
+        aiReflection =
+            'Entri berhasil disimpan. Gagal memuat refleksi secara langsung.';
+      }
+
+      // 3. Navigasi ke HomePage dan kirim HASIL refleksi
       if (mounted) {
-        // Pesan status yang akan muncul di dialog Home Page
-        const reflectionStatus =
-            'Entri Anda berhasil disimpan! Refleksi Diri Anda sedang diproses oleh AI. Silakan cek detail entri Anda dalam beberapa saat.';
-
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
-            // Mengirim pesan Refleksi Diri ke HomePage
-            builder: (context) => HomePage(newReflection: reflectionStatus),
+            // Mengirim HASIL refleksi AI
+            builder: (context) => HomePage(newReflection: aiReflection),
           ),
-          (route) => false, // Hapus semua rute di bawahnya (bersihkan stack)
+          (route) => false, // Hapus semua rute di bawahnya
         );
       }
     } catch (e) {
@@ -251,6 +270,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
 
   @override
   Widget build(BuildContext context) {
+    // ... (widget build tetap sama)
     const Color primaryBlue = Color(0xFF3B82F6);
     final String displayDateTime = DateFormat(
       'EEEE, d MMM yyyy HH:mm',
@@ -258,7 +278,6 @@ class _AddEntryPageState extends State<AddEntryPage> {
     ).format(_selectedDateTime);
     const Color lightOutlineColor = Color(0xFFE0E0E0);
     const Color hintTextColor = Colors.grey;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Entri Baru'),
@@ -304,13 +323,11 @@ class _AddEntryPageState extends State<AddEntryPage> {
                 ),
               ),
               const SizedBox(height: 15),
-
               const Text(
                 'Bagaimana perasaanmu hari ini?',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
-
               // Pilihan Mood
               Wrap(
                 alignment: WrapAlignment.spaceAround,
@@ -345,13 +362,11 @@ class _AddEntryPageState extends State<AddEntryPage> {
                 }).toList(),
               ),
               const SizedBox(height: 30),
-
               const Text(
                 'Ceritakan sedikit tentang harimu',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 10),
-
               // Jurnal + Mic
               TextField(
                 controller: _journalController,
@@ -400,7 +415,6 @@ class _AddEntryPageState extends State<AddEntryPage> {
                 ),
               ),
               const SizedBox(height: 30),
-
               // Tombol Simpan
               SizedBox(
                 width: double.infinity,
