@@ -1,5 +1,5 @@
 // functions/src/index.ts
-import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import {onDocumentCreated, onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import {GoogleGenerativeAI} from "@google/generative-ai";
 
@@ -33,7 +33,7 @@ export const generateReflection = onDocumentCreated(
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      // UBAH field yang di-update menjadi 'reflection'
+      // PERBAIKAN: Menggunakan optional chaining atau memastikan snapshot non-null
       await snapshot.ref.update({reflection: "Error: AI Key hilang."});
       return;
     }
@@ -63,15 +63,95 @@ export const generateReflection = onDocumentCreated(
     }
 
     if (text) {
-      // UBAH field yang di-update menjadi 'reflection'
+      // PERBAIKAN: Menggunakan optional chaining/memastikan snapshot non-null
       await snapshot.ref.update({
         reflection: text.trim(),
         reflectedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     } else {
-      // UBAH field yang di-update menjadi 'reflection'
+      // PERBAIKAN: Menggunakan optional chaining/memastikan snapshot non-null
       await snapshot.ref.update({
         reflection: "Maaf, AI sedang sibuk. Coba lagi nanti.",
+        errorLog: errorMsg.substring(0, 500),
+      });
+    }
+  }
+);
+
+// === FUNCTION 3: Meregenerasi Refleksi saat Entri di-Update ===
+export const regenerateReflectionOnUpdate = onDocumentUpdated(
+  {
+    document: "mood_entries/{entryId}",
+    region: "asia-southeast2",
+    secrets: ["GEMINI_API_KEY"],
+    timeoutSeconds: 300,
+    memory: "512MiB",
+    cpu: 1,
+  },
+  async (event) => {
+    // Pengamanan sudah benar, tapi kita tambahkan pengamanan di bawah
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    const afterSnapshot = event.data?.after; // Ambil snapshot setelah
+
+    if (!before || !after || !afterSnapshot) return; // Tambahkan pengamanan untuk afterSnapshot
+
+    // Syarat 1: Hanya jalankan jika field 'journal' berubah
+    const journalChanged = before.journal !== after.journal;
+
+    // Syarat 2: Hanya jalankan jika field 'reflection' sengaja di-set ke null oleh client (saat update)
+    const reflectionCleared = after.reflection === null;
+
+    // JANGAN JALANKAN jika jurnal tidak berubah ATAU reflection tidak di-set null
+    if (!journalChanged || !reflectionCleared) return;
+
+    // PERBAIKAN: Mengakses ref dari afterSnapshot yang sudah dipastikan non-null
+    await afterSnapshot.ref.update({
+      dailySummaryTriggered: admin.firestore.FieldValue.delete(),
+    });
+
+    const data = after;
+
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) {
+      // PERBAIKAN: Mengakses ref dari afterSnapshot
+      await afterSnapshot.ref.update({reflection: "Error: AI Key hilang saat update."});
+      return;
+    }
+
+    let text = null;
+    let errorMsg = "";
+    let retryCount = 0;
+    const maxRetries = 2;
+
+    // Logika generasi AI diulang sama persis dengan generateReflection
+    while (!text && retryCount < maxRetries) {
+      try {
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
+        const result = await model.generateContent(
+          SYSTEM_PROMPT_REFLECTION(data.mood, data.journal));
+        text = result.response.text();
+        break;
+      } catch (error: any) {
+        errorMsg = error.message || "Unknown error";
+        if (errorMsg.includes("429")) {
+          await new Promise((r) => setTimeout(r, 30000));
+          retryCount++;
+        } else break;
+      }
+    }
+
+    if (text) {
+      // PERBAIKAN: Mengakses ref dari afterSnapshot
+      await afterSnapshot.ref.update({
+        reflection: text.trim(),
+        reflectedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      // PERBAIKAN: Mengakses ref dari afterSnapshot
+      await afterSnapshot.ref.update({
+        reflection: "Maaf, AI sedang sibuk saat update. Coba lagi nanti.",
         errorLog: errorMsg.substring(0, 500),
       });
     }
