@@ -1,0 +1,7 @@
+// Isi untuk file: d:\last dance kuliah\final project\moodwise\tsconfig.json
+{
+  "files": [],
+  "references": [
+    { "path": "functions" }
+  ]
+}

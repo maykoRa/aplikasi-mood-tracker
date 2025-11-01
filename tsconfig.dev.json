@@ -1,0 +1,4 @@
+{
+  // File ini berfungsi sebagai referensi yang mengarahkan linter ke sub-proyek 'functions'.
+  "extends": "./functions/tsconfig.dev.json"
+}

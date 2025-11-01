@@ -3,11 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'add_entry_page.dart';
-import 'entry_detail_page.dart'; // TAMBAHAN
+import 'entry_detail_page.dart';
 import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final String? newReflection;
+  const HomePage({super.key, this.newReflection});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -16,11 +17,11 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
 
-  static List<Widget> _widgetOptions = <Widget>[
+  static final List<Widget> _widgetOptions = <Widget>[
     const HomeScreenContent(),
-    Scaffold(body: Center(child: Text('Halaman Stats'))),
-    Scaffold(body: Center(child: Text('Placeholder FAB'))),
-    Scaffold(body: Center(child: Text('Halaman Chatbot'))),
+    const Scaffold(body: Center(child: Text('Halaman Stats'))),
+    const Scaffold(body: Center(child: Text('Placeholder FAB'))),
+    const Scaffold(body: Center(child: Text('Halaman Chatbot'))),
     const ProfilePage(),
   ];
 
@@ -28,6 +29,33 @@ class _HomePageState extends State<HomePage> {
     if (index != 2) {
       setState(() => _selectedIndex = index);
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.newReflection != null) {
+        _showReflectionDialog(widget.newReflection!);
+      }
+    });
+  }
+
+  void _showReflectionDialog(String reflection) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('✨ Info Refleksi Diri'),
+        content: Text(reflection),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Oke'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -170,15 +198,15 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   String _getEmoji(String mood) {
     switch (mood) {
       case 'Sangat Baik':
-        return 'Sangat Baik';
+        return '😄';
       case 'Baik':
-        return 'Baik';
+        return '😊';
       case 'Biasa Saja':
-        return 'Biasa Saja';
+        return '😐';
       case 'Buruk':
-        return 'Buruk';
+        return '😟';
       case 'Sangat Buruk':
-        return 'Sangat Buruk';
+        return '😠';
       default:
         return 'Tidak Diketahui';
     }
@@ -207,7 +235,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             ),
             const SizedBox(height: 30),
 
-            // Rekomendasi Hari Ini (Dynamic)
             const Text(
               'Rekomendasi hari ini',
               style: TextStyle(
@@ -238,7 +265,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Text('Pen', style: TextStyle(fontSize: 20)),
                 ],
               ),
             ),
@@ -250,7 +276,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: primaryBlue,
+                color: primaryBlue, // USAGE: primaryBlue
               ),
             ),
             const SizedBox(height: 15),
@@ -294,7 +320,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                     final mood = entry['mood'] as String? ?? 'Tidak Diketahui';
                     final journal = entry['journal'] as String? ?? '';
                     final timestamp = entry['timestamp'] as Timestamp?;
-                    final recommendation = entry['recommendation'] as String?;
+                    final reflection = entry['reflection'] as String?;
                     final dateTimeString = timestamp != null
                         ? cardDateTimeFormat.format(timestamp.toDate())
                         : 'Waktu tidak valid';
@@ -311,7 +337,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                             : 'Tidak ada catatan jurnal.',
                         date: dateTimeString,
                         borderColor: borderColor,
-                        recommendation: recommendation,
+                        reflection: reflection,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -331,14 +357,13 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
   }
 
-  // CARD DENGAN REKOMENDASI + LOADING + TAP
   Widget _buildMoodCard({
     required String emoji,
     required String moodText,
     required String description,
     required String date,
     required Color borderColor,
-    String? recommendation,
+    String? reflection,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -404,56 +429,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 ),
               ],
             ),
-
-            // REKOMENDASI DARI AI
-            if (recommendation != null && recommendation.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Text(
-                  recommendation,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color.fromARGB(255, 66, 132, 197),
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ] else ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'AI sedang menganalisis...',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            const SizedBox(height: 5),
           ],
         ),
       ),

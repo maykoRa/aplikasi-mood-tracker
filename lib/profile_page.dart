@@ -300,7 +300,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: const Color(0xFF3B82F6), // Warna biru saat aktif
+            activeThumbColor: const Color(0xFF3B82F6), // Warna biru saat aktif
           ),
         ],
       ),

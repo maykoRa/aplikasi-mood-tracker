@@ -1,25 +1,26 @@
 // functions/src/index.ts
-import { onDocumentCreated } from 'firebase-functions/v2/firestore';
-import * as admin from 'firebase-admin';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import * as admin from "firebase-admin";
+import {GoogleGenerativeAI} from "@google/generative-ai";
 
 admin.initializeApp();
 
-// === FUNCTION 1: Rekomendasi per entri (SUDAH ADA) ===
-const SYSTEM_PROMPT_PER_ENTRY = (mood: string, journal: string) => `
-Kamu adalah psikolog ramah bernama "MoodBuddy". 
+// === FUNCTION 1: Refleksi Diri per entri (Penamaan Ulang & Prompt) ===
+const SYSTEM_PROMPT_REFLECTION = (mood: string, journal: string) => `
+Sebagai AI refleksi, JANGAN PERNAH memperkenalkan diri. Langsung berikan inti refleksi.
 Analisis mood: "${mood}" dan jurnal: "${journal}".
-Berikan 1 rekomendasi singkat (maks 2 kalimat) yang actionable, positif, dan sesuai mood.
+Berikan 1 REFLEKSI DIRI singkat (maks 2 kalimat) yang bersifat positif, membangun, dan sesuai dengan perasaan dan isi jurnal user.
 Gunakan bahasa Indonesia santai. JANGAN gunakan emoji.
 `;
 
-export const generateRecommendation = onDocumentCreated(
+// Nama fungsi diubah menjadi generateReflection dan akan mengupdate field 'reflection'
+export const generateReflection = onDocumentCreated(
   {
-    document: 'mood_entries/{entryId}',
-    region: 'asia-southeast2',
-    secrets: ['GEMINI_API_KEY'],
+    document: "mood_entries/{entryId}",
+    region: "asia-southeast2",
+    secrets: ["GEMINI_API_KEY"],
     timeoutSeconds: 300,
-    memory: '512MiB',
+    memory: "512MiB",
     cpu: 1,
   },
   async (event) => {
@@ -27,73 +28,77 @@ export const generateRecommendation = onDocumentCreated(
     if (!snapshot) return;
 
     const data = snapshot.data();
-    if (!data?.mood || !data?.journal || !data?.userId) return;
+    // Cek apakah entri ini sudah memiliki refleksi (field baru)
+    if (!data?.mood || !data?.journal || !data?.userId || data.reflection) return;
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await snapshot.ref.update({ recommendation: 'Error: API Key hilang.' });
+      // UBAH field yang di-update menjadi 'reflection'
+      await snapshot.ref.update({reflection: "Error: AI Key hilang."});
       return;
     }
 
     let text = null;
-    let errorMsg = '';
+    let errorMsg = "";
     let retryCount = 0;
     const maxRetries = 2;
 
     while (!text && retryCount < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
 
-        const result = await model.generateContent(SYSTEM_PROMPT_PER_ENTRY(data.mood, data.journal));
+        const result = await model.generateContent(
+          // UBAH ke prompt refleksi yang baru
+          SYSTEM_PROMPT_REFLECTION(data.mood, data.journal));
         text = result.response.text();
         break;
       } catch (error: any) {
-        errorMsg = error.message || 'Unknown error';
-        if (errorMsg.includes('429')) {
-          await new Promise(r => setTimeout(r, 30000));
+        errorMsg = error.message || "Unknown error";
+        if (errorMsg.includes("429")) {
+          await new Promise((r) => setTimeout(r, 30000));
           retryCount++;
         } else break;
       }
     }
 
     if (text) {
+      // UBAH field yang di-update menjadi 'reflection'
       await snapshot.ref.update({
-        recommendation: text.trim(),
-        recommendedAt: admin.firestore.FieldValue.serverTimestamp(),
+        reflection: text.trim(),
+        reflectedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     } else {
+      // UBAH field yang di-update menjadi 'reflection'
       await snapshot.ref.update({
-        recommendation: 'Maaf, AI sedang sibuk. Coba lagi nanti.',
+        reflection: "Maaf, AI sedang sibuk. Coba lagi nanti.",
         errorLog: errorMsg.substring(0, 500),
       });
     }
   }
 );
 
-// === FUNCTION 2: Rekomendasi Keseluruhan (BARU!) ===
+// === FUNCTION 2: Rekomendasi Keseluruhan (Perbaikan Prompt & Logika 7 hari) ===
 const SYSTEM_PROMPT_SUMMARY = (journal: string) => `
-Kamu adalah psikolog ramah bernama "MoodBuddy".
-Berikut adalah Simpulkan semua entri mood dan jurnal user dalam 7 hari terakhir:
+Sebagai AI psikolog, JANGAN PERNAH memperkenalkan diri. Langsung berikan inti rekomendasi.
+Berikut adalah rangkuman entri mood dan jurnal user dalam 7 hari terakhir:
 
 ${journal}
 
 Analisis pola mood, emosi, dan kebiasaan user.
-Berikan 1 rekomendasi utama hari ini (maks 3 kalimat) yang:
-- Sangat personal & relevan
-- Actionable
-- Positif & mendukung
-- Bahasa Indonesia santai
-- JANGAN gunakan emoji
+Berikan 3 poin rekomendasi utama hari ini, **setiap poin harus satu kalimat pendek**. 
+**JANGAN GUNAKAN LEBIH DARI 3 KALIMAT TOTAL.**
+Format respons HANYA dalam 3 kalimat, tanpa poin, tanpa daftar.
+Contoh: 'Fokus pada pola tidurmu minggu ini. Luangkan waktu 10 menit untuk journaling di pagi hari. Beri dirimu apresiasi untuk pencapaian kecil.'
 `;
 
 export const generateDailySummary = onDocumentCreated(
   {
-    document: 'mood_entries/{entryId}',
-    region: 'asia-southeast2',
-    secrets: ['GEMINI_API_KEY'],
+    document: "mood_entries/{entryId}",
+    region: "asia-southeast2",
+    secrets: ["GEMINI_API_KEY"],
     timeoutSeconds: 300,
-    memory: '1GiB',
+    memory: "1GiB",
     cpu: 1,
   },
   async (event) => {
@@ -107,48 +112,50 @@ export const generateDailySummary = onDocumentCreated(
     const db = admin.firestore();
 
     try {
+      // Logika 7 hari sudah benar, menggunakan timestamp 7 hari yang lalu
       const sevenDaysAgo = admin.firestore.Timestamp.fromDate(
         new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
       );
 
       const entriesSnap = await db
-        .collection('mood_entries')
-        .where('userId', '==', userId)
-        .where('timestamp', '>=', sevenDaysAgo)
-        .orderBy('timestamp', 'desc')
+        .collection("mood_entries")
+        .where("userId", "==", userId)
+        .where("timestamp", ">=", sevenDaysAgo)
+        .orderBy("timestamp", "desc")
         .get();
 
       if (entriesSnap.empty) return;
 
       const entriesText = entriesSnap.docs
-        .map(doc => {
+        .map((doc) => {
           const d = doc.data();
-          const date = d.timestamp?.toDate().toLocaleDateString('id-ID') || 'Unknown';
+          const date = d.timestamp?.toDate().toLocaleDateString("id-ID") || "Unknown";
           return `- ${date}: Mood "${d.mood}", Jurnal: "${d.journal}"`;
         })
-        .join('\n');
+        .join("\n");
 
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
 
+      // Gunakan prompt summary yang sudah diperketat
       const result = await model.generateContent(SYSTEM_PROMPT_SUMMARY(entriesText));
       const summary = result.response.text().trim();
 
       await db
-        .collection('users')
+        .collection("users")
         .doc(userId)
-        .collection('summary')
-        .doc('daily')
+        .collection("summary")
+        .doc("daily")
         .set({
           recommendation: summary,
           generatedAt: admin.firestore.FieldValue.serverTimestamp(),
           periodStart: sevenDaysAgo,
           entryCount: entriesSnap.size,
-        }, { merge: true });
+        }, {merge: true});
 
       console.log(`Summary generated: ${summary.substring(0, 50)}...`);
     } catch (error: any) {
-      console.error('Summary Error:', error.message);
+      console.error("Summary Error:", error.message);
     }
   }
 );

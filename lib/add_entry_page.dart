@@ -1,10 +1,11 @@
+// lib/add_entry_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'entry_detail_page.dart'; // TAMBAHAN: Import halaman detail
+import 'home_page.dart'; // UBAH: Import HomePage
 
 class AddEntryPage extends StatefulWidget {
   const AddEntryPage({super.key});
@@ -105,8 +106,8 @@ class _AddEntryPageState extends State<AddEntryPage> {
     setState(() {
       final separator =
           _textBeforeListening.isEmpty || _textBeforeListening.endsWith(' ')
-              ? ''
-              : ' ';
+          ? ''
+          : ' ';
       String recognized = result.recognizedWords;
       _journalController.text = _textBeforeListening + separator + recognized;
       _journalController.selection = TextSelection.fromPosition(
@@ -177,9 +178,9 @@ class _AddEntryPageState extends State<AddEntryPage> {
     }
   }
 
-  // SIMPAN ENTRI + NAVIGASI KE DETAIL
+  // SIMPAN ENTRI DAN NAVIGASI KE HOME DENGAN PESAN DIALOG
   Future<void> _saveEntry() async {
-    // Validasi Mood
+    // Validasi
     if (_selectedMood == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -190,7 +191,6 @@ class _AddEntryPageState extends State<AddEntryPage> {
       return;
     }
 
-    // Validasi User
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -201,41 +201,36 @@ class _AddEntryPageState extends State<AddEntryPage> {
       );
       return;
     }
-
-    // Validasi Waktu
     if (_selectedDateTime.isAfter(DateTime.now())) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Waktu entri tidak valid (masa depan). Direset ke waktu sekarang.',
-          ),
-          backgroundColor: Colors.orange,
-        ),
-      );
       setState(() => _selectedDateTime = DateTime.now());
     }
 
     setState(() => _isLoading = true);
 
     try {
-      // Simpan dan dapatkan ID dokumen
-      final docRef = await FirebaseFirestore.instance.collection('mood_entries').add({
+      // Simpan entri ke Firestore
+      await FirebaseFirestore.instance.collection('mood_entries').add({
         'userId': user.uid,
         'mood': _selectedMood!,
         'journal': _journalController.text.trim(),
         'timestamp': Timestamp.fromDate(_selectedDateTime),
         'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
+        // 'reflection' akan diisi oleh Cloud Function generateReflection
       });
 
-      final entryId = docRef.id;
-
-      // Langsung ke halaman detail
+      // Navigasi ke HomePage dan kirim pesan status untuk dialog
       if (mounted) {
-        Navigator.pushReplacement(
+        // Pesan status yang akan muncul di dialog Home Page
+        const reflectionStatus =
+            'Entri Anda berhasil disimpan! Refleksi Diri Anda sedang diproses oleh AI. Silakan cek detail entri Anda dalam beberapa saat.';
+
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
-            builder: (context) => EntryDetailPage(entryId: entryId),
+            // Mengirim pesan Refleksi Diri ke HomePage
+            builder: (context) => HomePage(newReflection: reflectionStatus),
           ),
+          (route) => false, // Hapus semua rute di bawahnya (bersihkan stack)
         );
       }
     } catch (e) {
@@ -335,7 +330,9 @@ class _AddEntryPageState extends State<AddEntryPage> {
                             : Colors.transparent,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isSelected ? primaryBlue : Colors.grey.shade300,
+                          color: isSelected
+                              ? primaryBlue
+                              : Colors.grey.shade300,
                           width: 1.5,
                         ),
                       ),
@@ -395,7 +392,9 @@ class _AddEntryPageState extends State<AddEntryPage> {
                     color: _speechToText.isListening ? Colors.red : primaryBlue,
                     tooltip: 'Tekan untuk bicara',
                     onPressed: _speechEnabled && !_isLoading
-                        ? (_speechToText.isListening ? _stopListening : _startListening)
+                        ? (_speechToText.isListening
+                              ? _stopListening
+                              : _startListening)
                         : null,
                   ),
                 ),
