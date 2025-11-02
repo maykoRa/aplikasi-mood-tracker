@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'add_entry_page.dart';
 import 'entry_detail_page.dart';
 import 'profile_page.dart';
+import 'statistics_page.dart';
 
 class HomePage extends StatefulWidget {
   final String? newReflection;
@@ -19,7 +20,7 @@ class _HomePageState extends State<HomePage> {
 
   static final List<Widget> _widgetOptions = <Widget>[
     const HomeScreenContent(),
-    const Scaffold(body: Center(child: Text('Halaman Stats'))),
+    const StatisticsPage(),
     const Scaffold(body: Center(child: Text('Placeholder FAB'))),
     const Scaffold(body: Center(child: Text('Halaman Chatbot'))),
     const ProfilePage(),
