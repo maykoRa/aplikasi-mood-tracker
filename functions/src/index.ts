@@ -1,7 +1,8 @@
 // functions/src/index.ts
-import {onDocumentCreated, onDocumentUpdated} from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onCall } from "firebase-functions/v2/https"; // TAMBAHKAN INI
 import * as admin from "firebase-admin";
-import {GoogleGenerativeAI} from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 admin.initializeApp();
 
@@ -33,8 +34,7 @@ export const generateReflection = onDocumentCreated(
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      // PERBAIKAN: Menggunakan optional chaining atau memastikan snapshot non-null
-      await snapshot.ref.update({reflection: "Error: AI Key hilang."});
+      await snapshot.ref.update({ reflection: "Error: AI Key hilang." });
       return;
     }
 
@@ -46,11 +46,11 @@ export const generateReflection = onDocumentCreated(
     while (!text && retryCount < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const result = await model.generateContent(
-          // UBAH ke prompt refleksi yang baru
-          SYSTEM_PROMPT_REFLECTION(data.mood, data.journal));
+          SYSTEM_PROMPT_REFLECTION(data.mood, data.journal)
+        );
         text = result.response.text();
         break;
       } catch (error: any) {
@@ -63,13 +63,11 @@ export const generateReflection = onDocumentCreated(
     }
 
     if (text) {
-      // PERBAIKAN: Menggunakan optional chaining/memastikan snapshot non-null
       await snapshot.ref.update({
         reflection: text.trim(),
         reflectedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     } else {
-      // PERBAIKAN: Menggunakan optional chaining/memastikan snapshot non-null
       await snapshot.ref.update({
         reflection: "Maaf, AI sedang sibuk. Coba lagi nanti.",
         errorLog: errorMsg.substring(0, 500),
@@ -89,23 +87,17 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
     cpu: 1,
   },
   async (event) => {
-    // Pengamanan sudah benar, tapi kita tambahkan pengamanan di bawah
     const before = event.data?.before.data();
     const after = event.data?.after.data();
-    const afterSnapshot = event.data?.after; // Ambil snapshot setelah
+    const afterSnapshot = event.data?.after;
 
-    if (!before || !after || !afterSnapshot) return; // Tambahkan pengamanan untuk afterSnapshot
+    if (!before || !after || !afterSnapshot) return;
 
-    // Syarat 1: Hanya jalankan jika field 'journal' berubah
     const journalChanged = before.journal !== after.journal;
-
-    // Syarat 2: Hanya jalankan jika field 'reflection' sengaja di-set ke null oleh client (saat update)
     const reflectionCleared = after.reflection === null;
 
-    // JANGAN JALANKAN jika jurnal tidak berubah ATAU reflection tidak di-set null
     if (!journalChanged || !reflectionCleared) return;
 
-    // PERBAIKAN: Mengakses ref dari afterSnapshot yang sudah dipastikan non-null
     await afterSnapshot.ref.update({
       dailySummaryTriggered: admin.firestore.FieldValue.delete(),
     });
@@ -114,8 +106,7 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      // PERBAIKAN: Mengakses ref dari afterSnapshot
-      await afterSnapshot.ref.update({reflection: "Error: AI Key hilang saat update."});
+      await afterSnapshot.ref.update({ reflection: "Error: AI Key hilang saat update." });
       return;
     }
 
@@ -124,13 +115,13 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
     let retryCount = 0;
     const maxRetries = 2;
 
-    // Logika generasi AI diulang sama persis dengan generateReflection
     while (!text && retryCount < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const result = await model.generateContent(
-          SYSTEM_PROMPT_REFLECTION(data.mood, data.journal));
+          SYSTEM_PROMPT_REFLECTION(data.mood, data.journal)
+        );
         text = result.response.text();
         break;
       } catch (error: any) {
@@ -143,13 +134,11 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
     }
 
     if (text) {
-      // PERBAIKAN: Mengakses ref dari afterSnapshot
       await afterSnapshot.ref.update({
         reflection: text.trim(),
         reflectedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     } else {
-      // PERBAIKAN: Mengakses ref dari afterSnapshot
       await afterSnapshot.ref.update({
         reflection: "Maaf, AI sedang sibuk saat update. Coba lagi nanti.",
         errorLog: errorMsg.substring(0, 500),
@@ -192,7 +181,6 @@ export const generateDailySummary = onDocumentCreated(
     const db = admin.firestore();
 
     try {
-      // Logika 7 hari sudah benar, menggunakan timestamp 7 hari yang lalu
       const sevenDaysAgo = admin.firestore.Timestamp.fromDate(
         new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
       );
@@ -215,9 +203,8 @@ export const generateDailySummary = onDocumentCreated(
         .join("\n");
 
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-      // Gunakan prompt summary yang sudah diperketat
       const result = await model.generateContent(SYSTEM_PROMPT_SUMMARY(entriesText));
       const summary = result.response.text().trim();
 
@@ -226,16 +213,150 @@ export const generateDailySummary = onDocumentCreated(
         .doc(userId)
         .collection("summary")
         .doc("daily")
-        .set({
-          recommendation: summary,
-          generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          periodStart: sevenDaysAgo,
-          entryCount: entriesSnap.size,
-        }, {merge: true});
+        .set(
+          {
+            recommendation: summary,
+            generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            periodStart: sevenDaysAgo,
+            entryCount: entriesSnap.size,
+          },
+          { merge: true }
+        );
 
       console.log(`Summary generated: ${summary.substring(0, 50)}...`);
     } catch (error: any) {
       console.error("Summary Error:", error.message);
+    }
+  }
+);
+
+// ====================================================================
+// === CHATBOT: Send Message + Dynamic Summary (TAMBAHAN BARU) ===
+// ====================================================================
+
+export const sendChatMessage = onCall(
+  {
+    region: "asia-southeast2",
+    secrets: ["GEMINI_API_KEY"],
+    timeoutSeconds: 60,
+    memory: "1GiB",
+  },
+  async (request) => {
+    const { userId, message, chatId } = request.data;
+    if (!userId || !message) throw new Error("Missing userId or message");
+
+    const db = admin.firestore();
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) throw new Error("API Key missing");
+
+    try {
+      let sessionRef;
+
+      if (chatId) {
+        sessionRef = db.collection("users").doc(userId).collection("chats").doc(chatId);
+        const doc = await sessionRef.get();
+        if (!doc.exists) throw new Error("Chat session not found");
+      } else {
+        sessionRef = db.collection("users").doc(userId).collection("chats").doc();
+        await sessionRef.set({
+          startedAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastMessage: admin.firestore.FieldValue.serverTimestamp(),
+          messageCount: 0,
+          summary: "Percakapan dimulai.",
+        });
+      }
+
+      // Simpan pesan user
+      await sessionRef.collection("messages").add({
+        role: "user",
+        message: message,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      await sessionRef.update({
+        lastMessage: admin.firestore.FieldValue.serverTimestamp(),
+        messageCount: admin.firestore.FieldValue.increment(1),
+      });
+
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+      // Ambil summary terbaru
+      const currentSummary = (await sessionRef.get()).data()?.summary || "Percakapan dimulai.";
+
+      // Ambil 2 pesan terbaru
+      const recentSnap = await sessionRef.collection("messages")
+        .orderBy("timestamp", "desc")
+        .limit(2)
+        .get();
+
+      const recentMessages = recentSnap.docs
+        .reverse()
+        .map((doc) => {
+          const d = doc.data();
+          return `${d.role === "user" ? "User" : "MoodBuddy"}: ${d.message}`;
+        })
+        .join("\n");
+
+      const prompt = `
+        Kamu adalah "MoodBuddy", psikolog ramah.
+        Konteks sebelumnya: "${currentSummary}"
+        Pesan terbaru:
+        ${recentMessages}
+
+        Balas singkat (1-2 kalimat), empati, bahasa Indonesia santai.
+        JANGAN ulangi konteks. JANGAN pakai emoji.
+      `;
+
+      const result = await model.generateContent(prompt);
+      const aiResponse = result.response.text().trim();
+
+      // Simpan balasan AI
+      await sessionRef.collection("messages").add({
+        role: "ai",
+        message: aiResponse,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      await sessionRef.update({
+        lastMessage: admin.firestore.FieldValue.serverTimestamp(),
+        messageCount: admin.firestore.FieldValue.increment(1),
+      });
+
+      // Update summary setiap 3 pesan
+      const messageCount = (await sessionRef.get()).data()?.messageCount || 0;
+      if (messageCount % 3 === 0 && messageCount > 0) {
+        const allSnap = await sessionRef.collection("messages")
+          .orderBy("timestamp")
+          .get();
+
+        const fullHistory = allSnap.docs
+          .map((doc) => {
+            const d = doc.data();
+            return `${d.role === "user" ? "User" : "MoodBuddy"}: ${d.message}`;
+          })
+          .join("\n");
+
+        const summaryPrompt = `
+          Ringkas percakapan ini dalam 1 kalimat (maks 25 kata):
+          "${fullHistory}"
+          Fokus emosi user dan saran MoodBuddy.
+        `;
+
+        const summaryResult = await model.generateContent(summaryPrompt);
+        const newSummary = summaryResult.response.text().trim();
+
+        await sessionRef.update({ summary: newSummary });
+        console.log(`Chat summary updated: ${newSummary}`);
+      }
+
+      return {
+        reply: aiResponse,
+        chatId: sessionRef.id,
+      };
+    } catch (error: any) {
+      console.error("Chatbot Error:", error.message);
+      throw new Error("Gagal: " + error.message);
     }
   }
 );
