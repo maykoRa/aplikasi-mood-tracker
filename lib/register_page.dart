@@ -1,9 +1,11 @@
+// lib/register_page.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
-import 'home_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'home_page.dart'; // Menggunakan navigasi asli Anda
 
 class RegisterPage extends StatefulWidget {
+  // Mengembalikan constructor asli Anda
   const RegisterPage({super.key});
 
   @override
@@ -16,7 +18,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  bool _isLoading = false; // State untuk loading indicator
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -29,45 +31,48 @@ class _RegisterPageState extends State<RegisterPage> {
   // Fungsi untuk handle Sign Up
   Future<void> _handleSignUp() async {
     if (!_formKey.currentState!.validate()) {
-      return; // Jika form tidak valid, stop
+      return;
     }
 
     setState(() {
-      _isLoading = true; // Tampilkan loading
+      _isLoading = true;
     });
 
     try {
       // 1. Buat user di Firebase Authentication
       final UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
-            email: _emailController.text.trim(), // Ambil email dari controller
-            password: _passwordController.text.trim(), // Ambil password
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
           );
 
-      // Jika berhasil dibuat, userCredential.user tidak akan null
       if (userCredential.user != null) {
-        // 2. Simpan data user ke Firestore
+        // --- INI PERBAIKAN PENTING ---
+        // 2.A. Update 'displayName' di Firebase AUTH
+        // Ini adalah baris yang hilang dan menyebabkan nama kosong
+        await userCredential.user!.updateDisplayName(
+          _nameController.text.trim(),
+        );
+        // --- AKHIR PERBAIKAN ---
+
+        // 2.B. Simpan data user ke Firestore (Kode Anda ini sudah benar)
         await FirebaseFirestore.instance
-            .collection('users') // Nama koleksi 'users'
-            .doc(userCredential.user!.uid) // Gunakan UID sebagai ID dokumen
+            .collection('users')
+            .doc(userCredential.user!.uid)
             .set({
-              'name': _nameController.text.trim(), // Simpan nama
-              'email': _emailController.text.trim(), // Simpan email
-              'createdAt': Timestamp.now(), // Simpan waktu pembuatan akun
-              // Tambahkan field lain jika perlu
+              'name': _nameController.text.trim(), //
+              'email': _emailController.text.trim(),
+              'createdAt': Timestamp.now(),
             });
 
-        // 3. Navigasi ke Halaman Home (setelah berhasil)
+        // 3. Navigasi ke Halaman Home (Navigasi asli Anda)
         if (mounted) {
-          // Cek jika widget masih ada
-          // Ganti dengan navigasi ke halaman home sebenarnya
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const HomePage()),
           );
         }
       }
     } on FirebaseAuthException catch (e) {
-      // Tangani error spesifik dari Firebase Auth
       String message = 'Terjadi kesalahan.';
       if (e.code == 'weak-password') {
         message = 'Password terlalu lemah.';
@@ -76,14 +81,12 @@ class _RegisterPageState extends State<RegisterPage> {
       } else if (e.code == 'invalid-email') {
         message = 'Format email tidak valid.';
       }
-      // Tampilkan pesan error ke user (misal pakai SnackBar)
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
-      // Tangani error umum lainnya
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -93,7 +96,6 @@ class _RegisterPageState extends State<RegisterPage> {
         );
       }
     } finally {
-      // Pastikan loading indicator hilang meskipun terjadi error
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -104,6 +106,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Seluruh UI Anda di sini sudah benar dan tidak diubah
+    // ... (kode UI dari file Anda) ...
     const Color primaryBlue = Color(0xFF3B82F6);
     const Color secondaryBlue = Color(0xFF2563EB);
     const Color lightBlueOutline = Color(0xFFADD8E6);
@@ -118,12 +122,8 @@ class _RegisterPageState extends State<RegisterPage> {
           icon: Icon(
             Icons.arrow_back,
             color: _isLoading ? Colors.grey : Colors.black54,
-          ), // Disable saat loading
-          onPressed: _isLoading
-              ? null
-              : () => Navigator.of(
-                  context,
-                ).pop(), // Nonaktifkan tombol back saat loading
+          ),
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
         ),
       ),
       body: SafeArea(
@@ -136,26 +136,23 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Sign Up Title
                 const Text(
                   'SIGN UP',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: secondaryBlue, // Warna Biru
+                    color: secondaryBlue,
                   ),
                 ),
                 const SizedBox(height: 15),
-
-                // Subtitle
                 const Text(
                   "Let's Get Started",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey,
-                    fontWeight: FontWeight.w500, // Medium
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -165,11 +162,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey,
-                    fontWeight: FontWeight.w500, // Medium
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 40), // Jarak sebelum card
-                // Card Container untuk Form
+                const SizedBox(height: 40),
                 Container(
                   padding: const EdgeInsets.all(25.0),
                   decoration: BoxDecoration(
@@ -189,10 +185,9 @@ class _RegisterPageState extends State<RegisterPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Name Text Field
                         TextFormField(
                           controller: _nameController,
-                          enabled: !_isLoading, // Disable saat loading
+                          enabled: !_isLoading,
                           decoration: InputDecoration(
                             hintText: 'Name',
                             hintStyle: const TextStyle(color: hintTextColor),
@@ -230,11 +225,9 @@ class _RegisterPageState extends State<RegisterPage> {
                           },
                         ),
                         const SizedBox(height: 20),
-
-                        // Email Text Field
                         TextFormField(
                           controller: _emailController,
-                          enabled: !_isLoading, // Disable saat loading
+                          enabled: !_isLoading,
                           decoration: InputDecoration(
                             hintText: 'Email',
                             hintStyle: const TextStyle(color: hintTextColor),
@@ -276,11 +269,9 @@ class _RegisterPageState extends State<RegisterPage> {
                           },
                         ),
                         const SizedBox(height: 20),
-
-                        // Password Text Field
                         TextFormField(
                           controller: _passwordController,
-                          enabled: !_isLoading, // Disable saat loading
+                          enabled: !_isLoading,
                           decoration: InputDecoration(
                             hintText: 'Password',
                             hintStyle: const TextStyle(color: hintTextColor),
@@ -322,8 +313,6 @@ class _RegisterPageState extends State<RegisterPage> {
                           },
                         ),
                         const SizedBox(height: 35),
-
-                        // Sign Up Button
                         ElevatedButton(
                           onPressed: _isLoading ? null : _handleSignUp,
                           style: ElevatedButton.styleFrom(
@@ -353,15 +342,14 @@ class _RegisterPageState extends State<RegisterPage> {
                       ],
                     ),
                   ),
-                ), // Akhir Card Container
-                const SizedBox(height: 25), // Jarak setelah card
-                // Already have account Text
+                ),
+                const SizedBox(height: 25),
+                // Menggunakan navigasi 'pop' asli Anda
                 GestureDetector(
                   onTap: _isLoading
                       ? null
                       : () {
-                          // Nonaktifkan saat loading
-                          Navigator.pop(context); // Kembali ke Login
+                          Navigator.pop(context); //
                         },
                   child: RichText(
                     textAlign: TextAlign.center,
@@ -371,13 +359,13 @@ class _RegisterPageState extends State<RegisterPage> {
                         color: Colors.grey,
                         fontFamily: 'Poppins',
                         fontSize: 14,
-                      ), // Sedikit kecil
+                      ),
                       children: <TextSpan>[
                         TextSpan(
                           text: 'Sign In here',
                           style: TextStyle(
                             color: primaryBlue,
-                            fontWeight: FontWeight.bold, // Bold
+                            fontWeight: FontWeight.bold,
                             fontFamily: 'Poppins',
                             fontSize: 14,
                           ),
@@ -386,7 +374,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20), // Padding bawah
+                const SizedBox(height: 20),
               ],
             ),
           ),

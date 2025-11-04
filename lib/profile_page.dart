@@ -1,8 +1,7 @@
-// lib/profile_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'auth_wrapper.dart';
+import 'edit_profile_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -14,7 +13,6 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   bool _dailyNotificationEnabled = false;
   bool _emergencyAlertEnabled = false;
-  final User? currentUser = FirebaseAuth.instance.currentUser;
 
   // --- Fungsi Logout ---
   Future<void> _handleLogout() async {
@@ -65,12 +63,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
   // --- Akhir Fungsi Logout ---
 
-  // --- FUNGSI HAPUS AKUN (BARU) ---
+  // --- Fungsi Hapus Akun ---
   Future<void> _handleDeleteAccount() async {
     final User? user = FirebaseAuth.instance.currentUser;
-    if (user == null) return; // Seharusnya tidak terjadi
+    if (user == null) return;
 
-    // Tampilkan dialog konfirmasi yang kuat
     final bool? confirmDelete = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -104,7 +101,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     if (confirmDelete == true) {
-      // Tampilkan dialog loading
       if (mounted) {
         showDialog(
           context: context,
@@ -115,15 +111,10 @@ class _ProfilePageState extends State<ProfilePage> {
       }
 
       try {
-        // HANYA panggil user.delete().
-        // Cloud Function akan menangani pembersihan data di server.
         await user.delete();
 
-        // Jika berhasil, navigasi keluar
         if (mounted) {
-          Navigator.of(
-            context,
-          ).popUntil((route) => route.isFirst); // Tutup dialog loading
+          Navigator.of(context).popUntil((route) => route.isFirst);
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const AuthWrapper()),
             (Route<dynamic> route) => false,
@@ -137,11 +128,10 @@ class _ProfilePageState extends State<ProfilePage> {
         }
       } on FirebaseAuthException catch (e) {
         if (mounted) {
-          Navigator.of(context).pop(); // Tutup dialog loading
+          Navigator.of(context).pop();
         }
         String message = 'Gagal menghapus akun.';
 
-        // Tangani error jika user harus login ulang
         if (e.code == 'requires-recent-login') {
           message =
               'Aksi ini memerlukan verifikasi. Harap logout dan login kembali sebelum mencoba menghapus akun.';
@@ -155,9 +145,8 @@ class _ProfilePageState extends State<ProfilePage> {
           );
         }
       } catch (e) {
-        // Tangani error lainnya
         if (mounted) {
-          Navigator.of(context).pop(); // Tutup dialog loading
+          Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Terjadi kesalahan: ${e.toString()}'),
@@ -175,10 +164,12 @@ class _ProfilePageState extends State<ProfilePage> {
     const Color primaryBlue = Color(0xFF3B82F6);
     const Color dangerRed = Colors.redAccent;
 
+    // Ambil user terbaru SETIAP KALI BUILD
+    // Ini penting agar nama bisa di-refresh setelah diedit
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+
     final String userName =
-        currentUser?.displayName ??
-        currentUser?.email?.split('@').first ??
-        "Pengguna";
+        currentUser?.displayName ?? "Pengguna"; // <-- Jauh lebih bersih
     final String userEmail = currentUser?.email ?? "email@example.com";
 
     return Scaffold(
@@ -201,7 +192,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 const SizedBox(height: 15),
                 Text(
-                  userName,
+                  userName, // <-- Nama akan ter-refresh di sini
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -223,13 +214,27 @@ class _ProfilePageState extends State<ProfilePage> {
                 _buildProfileOptionRow(
                   icon: Icons.edit_outlined,
                   text: 'Edit Profile',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Halaman Edit Profile nanti'),
+                  // --- UBAH FUNGSI ONTAP INI ---
+                  onTap: () async {
+                    // Navigasi ke EditProfilePage dan tunggu hasilnya
+                    final bool? profileUpdated = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EditProfilePage(),
                       ),
                     );
+
+                    // Jika hasilnya 'true' (berarti update berhasil),
+                    // panggil setState untuk me-refresh UI halaman ini
+                    if (profileUpdated == true) {
+                      setState(() {
+                        // Tidak perlu melakukan apa-apa di sini,
+                        // build() akan otomatis dipanggil ulang
+                        // dan mengambil data currentUser yang baru.
+                      });
+                    }
                   },
+                  // --- AKHIR PERUBAHAN ONTAP ---
                 ),
                 _buildDivider(),
                 _buildSwitchOptionRow(
@@ -266,7 +271,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   text: 'Delete Account',
                   textColor: dangerRed,
                   iconColor: dangerRed,
-                  onTap: _handleDeleteAccount, // Panggil fungsi baru
+                  onTap: _handleDeleteAccount,
                 ),
                 _buildDivider(),
                 _buildProfileOptionRow(
