@@ -232,7 +232,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
           if (aiReflection.startsWith('Error:') ||
               aiReflection.startsWith('Maaf,')) {
             aiReflection =
-                'Entri berhasil disimpan, namun: \n\n**' + aiReflection + '**';
+                'Entri berhasil disimpan, namun: \n\n**$aiReflection**';
           }
         }
       } catch (e) {

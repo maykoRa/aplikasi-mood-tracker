@@ -12,14 +12,12 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Nanti akan dihubungkan ke state/logic sebenarnya
-  bool _dailyNotificationEnabled = false; // Contoh state awal
-  bool _emergencyAlertEnabled = false; // Contoh state awal
+  bool _dailyNotificationEnabled = false;
+  bool _emergencyAlertEnabled = false;
   final User? currentUser = FirebaseAuth.instance.currentUser;
 
   // --- Fungsi Logout ---
   Future<void> _handleLogout() async {
-    // Tampilkan dialog konfirmasi (opsional tapi bagus)
     final bool? confirmLogout = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -30,13 +28,13 @@ class _ProfilePageState extends State<ProfilePage> {
             TextButton(
               child: const Text('Batal'),
               onPressed: () {
-                Navigator.of(context).pop(false); // Kirim false
+                Navigator.of(context).pop(false);
               },
             ),
             TextButton(
               child: const Text('Logout', style: TextStyle(color: Colors.red)),
               onPressed: () {
-                Navigator.of(context).pop(true); // Kirim true
+                Navigator.of(context).pop(true);
               },
             ),
           ],
@@ -44,20 +42,13 @@ class _ProfilePageState extends State<ProfilePage> {
       },
     );
 
-    // Jika user menekan tombol "Logout" di dialog
     if (confirmLogout == true) {
       try {
         await FirebaseAuth.instance.signOut();
-        // Navigasi kembali ke AuthWrapper/LoginPage setelah logout
-        // AuthWrapper akan otomatis mendeteksi perubahan state dan menampilkan LoginPage
-        // Jadi, idealnya tidak perlu navigasi manual di sini jika root adalah AuthWrapper
-        // Tapi jika perlu (misal struktur navigasi beda):
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => const AuthWrapper(),
-            ), // Arahkan ke AuthWrapper
-            (Route<dynamic> route) => false, // Hapus semua route sebelumnya
+            MaterialPageRoute(builder: (context) => const AuthWrapper()),
+            (Route<dynamic> route) => false,
           );
         }
       } catch (e) {
@@ -74,12 +65,116 @@ class _ProfilePageState extends State<ProfilePage> {
   }
   // --- Akhir Fungsi Logout ---
 
+  // --- FUNGSI HAPUS AKUN (BARU) ---
+  Future<void> _handleDeleteAccount() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) return; // Seharusnya tidak terjadi
+
+    // Tampilkan dialog konfirmasi yang kuat
+    final bool? confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Konfirmasi Hapus Akun'),
+          content: const Text(
+            'Apakah Anda YAKIN ingin menghapus akun ini secara permanen? Semua data Anda (termasuk riwayat mood) akan hilang dan tidak dapat dikembalikan.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+            ),
+            TextButton(
+              child: const Text(
+                'HAPUS PERMANEN',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmDelete == true) {
+      // Tampilkan dialog loading
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) =>
+              const Center(child: CircularProgressIndicator()),
+        );
+      }
+
+      try {
+        // HANYA panggil user.delete().
+        // Cloud Function akan menangani pembersihan data di server.
+        await user.delete();
+
+        // Jika berhasil, navigasi keluar
+        if (mounted) {
+          Navigator.of(
+            context,
+          ).popUntil((route) => route.isFirst); // Tutup dialog loading
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const AuthWrapper()),
+            (Route<dynamic> route) => false,
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Akun berhasil dihapus'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } on FirebaseAuthException catch (e) {
+        if (mounted) {
+          Navigator.of(context).pop(); // Tutup dialog loading
+        }
+        String message = 'Gagal menghapus akun.';
+
+        // Tangani error jika user harus login ulang
+        if (e.code == 'requires-recent-login') {
+          message =
+              'Aksi ini memerlukan verifikasi. Harap logout dan login kembali sebelum mencoba menghapus akun.';
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$message Kode: ${e.code}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        // Tangani error lainnya
+        if (mounted) {
+          Navigator.of(context).pop(); // Tutup dialog loading
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Terjadi kesalahan: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+  // --- Akhir Fungsi Hapus Akun ---
+
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF3B82F6);
     const Color dangerRed = Colors.redAccent;
 
-    // Ambil nama & email (contoh sederhana)
     final String userName =
         currentUser?.displayName ??
         currentUser?.email?.split('@').first ??
@@ -90,21 +185,18 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: ListView(
-          // Gunakan ListView agar bisa scroll jika konten panjang
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 30.0),
           children: [
-            // Bagian Atas: Avatar, Nama, Email
+            // Bagian Atas
             Column(
               children: [
                 CircleAvatar(
                   radius: 50,
-                  backgroundColor: primaryBlue.withOpacity(
-                    0.15,
-                  ), // Background avatar
+                  backgroundColor: primaryBlue.withOpacity(0.15),
                   child: Icon(
                     Icons.person,
                     size: 60,
-                    color: primaryBlue.withOpacity(0.8), // Warna ikon
+                    color: primaryBlue.withOpacity(0.8),
                   ),
                 ),
                 const SizedBox(height: 15),
@@ -122,7 +214,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ],
             ),
-            const SizedBox(height: 40), // Jarak ke section Pengaturan
+            const SizedBox(height: 40),
             // Section Pengaturan
             _buildSectionTitle('Pengaturan'),
             const SizedBox(height: 10),
@@ -132,7 +224,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   icon: Icons.edit_outlined,
                   text: 'Edit Profile',
                   onTap: () {
-                    print("Navigasi ke Edit Profile");
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Halaman Edit Profile nanti'),
@@ -148,11 +239,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   onChanged: (value) {
                     setState(() {
                       _dailyNotificationEnabled = value;
-                      // Tambahkan logika simpan preferensi notifikasi nanti
                     });
                   },
                 ),
-                _buildDivider(), // Divider opsional antar switch
+                _buildDivider(),
                 _buildSwitchOptionRow(
                   icon: Icons.warning_amber_rounded,
                   text: 'Emergency Alert',
@@ -160,13 +250,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   onChanged: (value) {
                     setState(() {
                       _emergencyAlertEnabled = value;
-                      // Tambahkan logika simpan preferensi alert nanti
                     });
                   },
                 ),
               ],
             ),
-            const SizedBox(height: 30), // Jarak ke section Akun
+            const SizedBox(height: 30),
             // Section Akun
             _buildSectionTitle('Akun'),
             const SizedBox(height: 10),
@@ -177,12 +266,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   text: 'Delete Account',
                   textColor: dangerRed,
                   iconColor: dangerRed,
-                  onTap: () {
-                    print("Tampilkan dialog konfirmasi hapus akun");
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Logika Hapus Akun nanti')),
-                    );
-                  },
+                  onTap: _handleDeleteAccount, // Panggil fungsi baru
                 ),
                 _buildDivider(),
                 _buildProfileOptionRow(
@@ -190,48 +274,47 @@ class _ProfilePageState extends State<ProfilePage> {
                   text: 'Logout',
                   textColor: dangerRed,
                   iconColor: dangerRed,
-                  showArrow: false, // Logout tidak perlu panah navigasi
+                  showArrow: false,
                   onTap: _handleLogout,
                 ),
               ],
             ),
-            const SizedBox(height: 30), // Padding bawah
+            const SizedBox(height: 30),
           ],
         ),
       ),
     );
   }
 
-  // Helper untuk judul section
+  // --- Helper Widgets (Tidak berubah) ---
+
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(left: 5.0), // Sedikit indentasi
+      padding: const EdgeInsets.only(left: 5.0),
       child: Text(
         title,
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF3B82F6), // Warna biru
+          color: Color(0xFF3B82F6),
         ),
       ),
     );
   }
 
-  // Helper untuk card pembungkus
   Widget _buildSettingsCard({required List<Widget> children}) {
     const Color lightCardBg = Color(0xFFF0F9FF);
     const Color lightBorderBlue = Color(0xFFE0F2FE);
     return Container(
       decoration: BoxDecoration(
-        color: lightCardBg, // Warna background card
+        color: lightCardBg,
         borderRadius: BorderRadius.circular(15.0),
-        border: Border.all(color: lightBorderBlue, width: 1.0), // Border tipis
+        border: Border.all(color: lightBorderBlue, width: 1.0),
       ),
       child: Column(children: children),
     );
   }
 
-  // Helper untuk baris opsi biasa (Edit, Delete, Logout)
   Widget _buildProfileOptionRow({
     required IconData icon,
     required String text,
@@ -241,11 +324,8 @@ class _ProfilePageState extends State<ProfilePage> {
     bool showArrow = true,
   }) {
     return InkWell(
-      // Agar bisa diklik
       onTap: onTap,
-      borderRadius: BorderRadius.circular(
-        15.0,
-      ), // Agar ripple effect sesuai card
+      borderRadius: BorderRadius.circular(15.0),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 18.0),
         child: Row(
@@ -270,7 +350,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // Helper untuk baris opsi dengan Switch
   Widget _buildSwitchOptionRow({
     required IconData icon,
     required String text,
@@ -279,10 +358,7 @@ class _ProfilePageState extends State<ProfilePage> {
     Color iconColor = Colors.black54,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 15.0,
-        vertical: 8.0,
-      ), // Padding vertikal lebih kecil
+      padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8.0),
       child: Row(
         children: [
           Icon(icon, color: iconColor),
@@ -300,20 +376,19 @@ class _ProfilePageState extends State<ProfilePage> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: const Color(0xFF3B82F6), // Warna biru saat aktif
+            activeThumbColor: const Color(0xFF3B82F6),
           ),
         ],
       ),
     );
   }
 
-  // Helper untuk garis pemisah
   Widget _buildDivider() {
     return Divider(
-      height: 1, // Tinggi divider
-      thickness: 1, // Ketebalan garis
-      color: const Color(0xFFE0F2FE), // Warna border card
-      indent: 50, // Mulai setelah area ikon
+      height: 1,
+      thickness: 1,
+      color: const Color(0xFFE0F2FE),
+      indent: 50,
       endIndent: 15,
     );
   }

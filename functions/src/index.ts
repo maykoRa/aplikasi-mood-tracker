@@ -1,12 +1,15 @@
 // functions/src/index.ts
-import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
-import { onCall } from "firebase-functions/v2/https"; // TAMBAHKAN INI
+import {onDocumentCreated, onDocumentUpdated} from "firebase-functions/v2/firestore";
+import {onCall} from "firebase-functions/v2/https";
+import * as functionsV1 from "firebase-functions/v1";
 import * as admin from "firebase-admin";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import {GoogleGenerativeAI} from "@google/generative-ai";
+import * as logger from "firebase-functions/logger";
 
 admin.initializeApp();
+const db = admin.firestore(); // DB Global
 
-// === FUNCTION 1: Refleksi Diri per entri (Penamaan Ulang & Prompt) ===
+// === FUNCTION 1: Refleksi Diri per entri (v2) ===
 const SYSTEM_PROMPT_REFLECTION = (mood: string, journal: string) => `
 Sebagai AI refleksi, JANGAN PERNAH memperkenalkan diri. Langsung berikan inti refleksi.
 Analisis mood: "${mood}" dan jurnal: "${journal}".
@@ -14,7 +17,6 @@ Berikan 1 REFLEKSI DIRI singkat (maks 2 kalimat) yang bersifat positif, membangu
 Gunakan bahasa Indonesia santai. JANGAN gunakan emoji.
 `;
 
-// Nama fungsi diubah menjadi generateReflection dan akan mengupdate field 'reflection'
 export const generateReflection = onDocumentCreated(
   {
     document: "mood_entries/{entryId}",
@@ -27,14 +29,12 @@ export const generateReflection = onDocumentCreated(
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) return;
-
     const data = snapshot.data();
-    // Cek apakah entri ini sudah memiliki refleksi (field baru)
     if (!data?.mood || !data?.journal || !data?.userId || data.reflection) return;
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await snapshot.ref.update({ reflection: "Error: AI Key hilang." });
+      await snapshot.ref.update({reflection: "Error: AI Key hilang."});
       return;
     }
 
@@ -46,8 +46,7 @@ export const generateReflection = onDocumentCreated(
     while (!text && retryCount < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
         const result = await model.generateContent(
           SYSTEM_PROMPT_REFLECTION(data.mood, data.journal)
         );
@@ -61,7 +60,6 @@ export const generateReflection = onDocumentCreated(
         } else break;
       }
     }
-
     if (text) {
       await snapshot.ref.update({
         reflection: text.trim(),
@@ -76,7 +74,7 @@ export const generateReflection = onDocumentCreated(
   }
 );
 
-// === FUNCTION 3: Meregenerasi Refleksi saat Entri di-Update ===
+// === FUNCTION 3: Meregenerasi Refleksi saat Entri di-Update (v2) ===
 export const regenerateReflectionOnUpdate = onDocumentUpdated(
   {
     document: "mood_entries/{entryId}",
@@ -90,35 +88,29 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
     const before = event.data?.before.data();
     const after = event.data?.after.data();
     const afterSnapshot = event.data?.after;
-
     if (!before || !after || !afterSnapshot) return;
 
     const journalChanged = before.journal !== after.journal;
     const reflectionCleared = after.reflection === null;
-
     if (!journalChanged || !reflectionCleared) return;
 
     await afterSnapshot.ref.update({
       dailySummaryTriggered: admin.firestore.FieldValue.delete(),
     });
-
     const data = after;
-
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await afterSnapshot.ref.update({ reflection: "Error: AI Key hilang saat update." });
+      await afterSnapshot.ref.update({reflection: "Error: AI Key hilang saat update."});
       return;
     }
-
     let text = null;
     let errorMsg = "";
     let retryCount = 0;
     const maxRetries = 2;
-
     while (!text && retryCount < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
         const result = await model.generateContent(
           SYSTEM_PROMPT_REFLECTION(data.mood, data.journal)
         );
@@ -132,7 +124,6 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
         } else break;
       }
     }
-
     if (text) {
       await afterSnapshot.ref.update({
         reflection: text.trim(),
@@ -147,13 +138,11 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
   }
 );
 
-// === FUNCTION 2: Rekomendasi Keseluruhan (Perbaikan Prompt & Logika 7 hari) ===
+// === FUNCTION 2: Rekomendasi Keseluruhan (v2) ===
 const SYSTEM_PROMPT_SUMMARY = (journal: string) => `
 Sebagai AI psikolog, JANGAN PERNAH memperkenalkan diri. Langsung berikan inti rekomendasi.
 Berikut adalah rangkuman entri mood dan jurnal user dalam 7 hari terakhir:
-
 ${journal}
-
 Analisis pola mood, emosi, dan kebiasaan user.
 Berikan 3 poin rekomendasi utama hari ini, **setiap poin harus satu kalimat pendek**. 
 **JANGAN GUNAKAN LEBIH DARI 3 KALIMAT TOTAL.**
@@ -173,41 +162,34 @@ export const generateDailySummary = onDocumentCreated(
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) return;
-
     const data = snapshot.data();
     if (!data?.userId) return;
-
     const userId = data.userId;
-    const db = admin.firestore();
 
     try {
       const sevenDaysAgo = admin.firestore.Timestamp.fromDate(
         new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
       );
-
       const entriesSnap = await db
         .collection("mood_entries")
         .where("userId", "==", userId)
         .where("timestamp", ">=", sevenDaysAgo)
         .orderBy("timestamp", "desc")
         .get();
-
       if (entriesSnap.empty) return;
 
       const entriesText = entriesSnap.docs
-        .map((doc) => {
+      // PERBAIKAN: Tipe 'doc' ditambahkan
+        .map((doc: admin.firestore.QueryDocumentSnapshot) => {
           const d = doc.data();
           const date = d.timestamp?.toDate().toLocaleDateString("id-ID") || "Unknown";
           return `- ${date}: Mood "${d.mood}", Jurnal: "${d.journal}"`;
         })
         .join("\n");
-
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const result = await model.generateContent(SYSTEM_PROMPT_SUMMARY(entriesText));
       const summary = result.response.text().trim();
-
       await db
         .collection("users")
         .doc(userId)
@@ -220,18 +202,17 @@ export const generateDailySummary = onDocumentCreated(
             periodStart: sevenDaysAgo,
             entryCount: entriesSnap.size,
           },
-          { merge: true }
+          {merge: true}
         );
-
-      console.log(`Summary generated: ${summary.substring(0, 50)}...`);
+      logger.log(`Summary generated: ${summary.substring(0, 50)}...`);
     } catch (error: any) {
-      console.error("Summary Error:", error.message);
+      logger.error("Summary Error:", error.message);
     }
   }
 );
 
 // ====================================================================
-// === CHATBOT: Send Message + Dynamic Summary (TAMBAHAN BARU) ===
+// === CHATBOT: Send Message + Dynamic Summary (v2) ===
 // ====================================================================
 
 export const sendChatMessage = onCall(
@@ -242,16 +223,14 @@ export const sendChatMessage = onCall(
     memory: "1GiB",
   },
   async (request) => {
-    const { userId, message, chatId } = request.data;
+    const {userId, message, chatId} = request.data;
     if (!userId || !message) throw new Error("Missing userId or message");
 
-    const db = admin.firestore();
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) throw new Error("API Key missing");
 
     try {
       let sessionRef;
-
       if (chatId) {
         sessionRef = db.collection("users").doc(userId).collection("chats").doc(chatId);
         const doc = await sessionRef.get();
@@ -266,97 +245,133 @@ export const sendChatMessage = onCall(
         });
       }
 
-      // Simpan pesan user
       await sessionRef.collection("messages").add({
         role: "user",
         message: message,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
-
       await sessionRef.update({
         lastMessage: admin.firestore.FieldValue.serverTimestamp(),
         messageCount: admin.firestore.FieldValue.increment(1),
       });
-
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-      // Ambil summary terbaru
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const currentSummary = (await sessionRef.get()).data()?.summary || "Percakapan dimulai.";
-
-      // Ambil 2 pesan terbaru
       const recentSnap = await sessionRef.collection("messages")
         .orderBy("timestamp", "desc")
         .limit(2)
         .get();
-
       const recentMessages = recentSnap.docs
         .reverse()
-        .map((doc) => {
+      // PERBAIKAN: Tipe 'doc' ditambahkan
+        .map((doc: admin.firestore.QueryDocumentSnapshot) => {
           const d = doc.data();
           return `${d.role === "user" ? "User" : "MoodBuddy"}: ${d.message}`;
         })
         .join("\n");
-
       const prompt = `
-        Kamu adalah "MoodBuddy", psikolog ramah.
-        Konteks sebelumnya: "${currentSummary}"
-        Pesan terbaru:
-        ${recentMessages}
-
-        Balas singkat (1-2 kalimat), empati, bahasa Indonesia santai.
-        JANGAN ulangi konteks. JANGAN pakai emoji.
-      `;
-
+       Kamu adalah "MoodBuddy", psikolog ramah.
+       Konteks sebelumnya: "${currentSummary}"
+       Pesan terbaru:
+       ${recentMessages}
+       Balas singkat (1-2 kalimat), empati, bahasa Indonesia santai.
+       JANGAN ulangi konteks. JANGAN pakai emoji.
+     `;
       const result = await model.generateContent(prompt);
       const aiResponse = result.response.text().trim();
-
-      // Simpan balasan AI
       await sessionRef.collection("messages").add({
         role: "ai",
         message: aiResponse,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
-
       await sessionRef.update({
         lastMessage: admin.firestore.FieldValue.serverTimestamp(),
         messageCount: admin.firestore.FieldValue.increment(1),
       });
-
-      // Update summary setiap 3 pesan
       const messageCount = (await sessionRef.get()).data()?.messageCount || 0;
       if (messageCount % 3 === 0 && messageCount > 0) {
         const allSnap = await sessionRef.collection("messages")
           .orderBy("timestamp")
           .get();
-
         const fullHistory = allSnap.docs
-          .map((doc) => {
+        // PERBAIKAN: Tipe 'doc' ditambahkan
+          .map((doc: admin.firestore.QueryDocumentSnapshot) => {
             const d = doc.data();
             return `${d.role === "user" ? "User" : "MoodBuddy"}: ${d.message}`;
           })
           .join("\n");
-
         const summaryPrompt = `
-          Ringkas percakapan ini dalam 1 kalimat (maks 25 kata):
-          "${fullHistory}"
-          Fokus emosi user dan saran MoodBuddy.
-        `;
-
+         Ringkas percakapan ini dalam 1 kalimat (maks 25 kata):
+         "${fullHistory}"
+         Fokus emosi user dan saran MoodBuddy.
+       `;
         const summaryResult = await model.generateContent(summaryPrompt);
         const newSummary = summaryResult.response.text().trim();
-
-        await sessionRef.update({ summary: newSummary });
-        console.log(`Chat summary updated: ${newSummary}`);
+        await sessionRef.update({summary: newSummary});
+        logger.log(`Chat summary updated: ${newSummary}`);
       }
-
       return {
         reply: aiResponse,
         chatId: sessionRef.id,
       };
     } catch (error: any) {
-      console.error("Chatbot Error:", error.message);
+      logger.error("Chatbot Error:", error.message);
       throw new Error("Gagal: " + error.message);
     }
   }
 );
+
+
+// ====================================================================
+// === FUNGSI v1 UNTUK HAPUS DATA PENGGUNA (PERBAIKAN) ===
+// ====================================================================
+
+/**
+ * Fungsi ini dipicu (triggered) setiap kali sebuah akun
+ * Firebase Authentication dihapus. (MENGGUNAKAN SINTAKS v1)
+ */
+// PERBAIKAN: Gunakan alias 'functionsV1'
+export const cleanupUserDataOnDelete = functionsV1
+  .region("asia-southeast2")
+  .auth.user()
+  // PERBAIKAN: Gunakan tipe dari 'functionsV1'
+  .onDelete(async (user: functionsV1.auth.UserRecord) => {
+    const uid = user.uid;
+    logger.log(`[USER DELETED - v1] Mulai membersihkan data untuk user: ${uid}`);
+
+    // -----------------------------------------------------------------
+    // ⚠️ PASTIKAN NAMA KOLEKSI DI BAWAH INI SUDAH BENAR ⚠️
+    // -----------------------------------------------------------------
+    const moodEntriesQuery = db.collection("mood_entries")
+      .where("userId", "==", uid);
+    const userDocRef = db.collection("users").doc(uid);
+    // -----------------------------------------------------------------
+
+    try {
+      // PROSES 1: Hapus semua 'mood_entries'
+      const moodBatch = db.batch();
+      const moodSnapshot = await moodEntriesQuery.get();
+
+      if (moodSnapshot.empty) {
+        logger.log(`[USER DELETED - v1] Tidak ada 'mood_entries' ditemukan untuk user: ${uid}`);
+      } else {
+        logger.log(`[USER DELETED - v1] Menemukan ${moodSnapshot.size} 'mood_entries' untuk dihapus.`);
+        // PERBAIKAN: Tipe 'doc' ditambahkan
+        moodSnapshot.docs.forEach((doc: admin.firestore.QueryDocumentSnapshot) => {
+          moodBatch.delete(doc.ref);
+        });
+        await moodBatch.commit();
+        logger.log(`[USER DELETED - v1] Berhasil menghapus 'mood_entries' untuk ${uid}`);
+      }
+
+      // PROSES 2: Hapus dokumen user DAN SEMUA SUB-KOLEKSINYA
+      logger.log(`[USER DELETED - v1] Memulai penghapusan rekursif untuk doc: ${userDocRef.path}`);
+      await admin.firestore().recursiveDelete(userDocRef);
+      logger.log(`[USER DELETED - v1] Berhasil membersihkan semua data (termasuk sub-koleksi) untuk user: ${uid}`);
+
+      return null;
+    } catch (error: any) {
+      logger.error(`[USER DELETED - v1] Error saat membersihkan data user ${uid}:`, error);
+      throw new Error(`Gagal membersihkan data pengguna untuk ${uid}: ${error.message}`);
+    }
+  });

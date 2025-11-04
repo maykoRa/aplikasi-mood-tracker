@@ -177,7 +177,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
         touchTooltipData: BarTouchTooltipData(
           getTooltipItem: (group, groupIndex, rod, rodIndex) {
             return BarTooltipItem(
-              '${moods[group.x]}',
+              moods[group.x],
               const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               children: <TextSpan>[
                 const TextSpan(text: '\n', style: TextStyle(fontSize: 0)),
@@ -271,7 +271,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
     return {
       'moodCounts': moodCounts,
       'mostFrequent': sortedMoods.isNotEmpty ? sortedMoods.first : null,
-      'leastFrequent': sortedMoods.length >= 1 ? sortedMoods.last : null,
+      'leastFrequent': sortedMoods.isNotEmpty ? sortedMoods.last : null,
     };
   }
 
