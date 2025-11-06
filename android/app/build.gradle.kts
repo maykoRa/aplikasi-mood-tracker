@@ -16,6 +16,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        
+        // PERBAIKAN 1: Mengaktifkan Desugaring
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -31,6 +34,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        
+        // Menambahkan Multidex
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -44,4 +50,19 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// PERBAIKAN 2: Menambahkan blok dependensi
+dependencies {
+    // Import Firebase BOM
+    // Saya ambil versi BOM dari file proyek Anda yang lain
+    implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
+
+    // Tambahkan dependensi Firebase
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-functions")
+    
+    // Dependensi untuk Desugaring (Memperbaiki error build sebelumnya)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }

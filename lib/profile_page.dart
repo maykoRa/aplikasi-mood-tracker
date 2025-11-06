@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart'; // <-- IMPORT BARU
 import 'auth_wrapper.dart';
 import 'edit_profile_page.dart';
+import 'notification_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -11,11 +14,56 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  bool _dailyNotificationEnabled = false;
-  bool _emergencyAlertEnabled = false;
+  // Kunci untuk SharedPreferences
+  static const String _kNotificationEnabledKey = 'daily_notification_enabled';
+  static const String _kNotificationTimeHourKey = 'daily_notification_hour';
+  static const String _kNotificationTimeMinuteKey = 'daily_notification_minute';
 
-  // --- Fungsi Logout ---
+  bool _dailyNotificationEnabled = false;
+  TimeOfDay? _selectedNotificationTime;
+  bool _emergencyAlertEnabled = false;
+  bool _isLoadingSettings = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  // --- Fungsi Memuat Pengaturan (Tidak Berubah) ---
+  Future<void> _loadSettings() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _dailyNotificationEnabled =
+          prefs.getBool(_kNotificationEnabledKey) ?? false;
+      final int? hour = prefs.getInt(_kNotificationTimeHourKey);
+      final int? minute = prefs.getInt(_kNotificationTimeMinuteKey);
+
+      if (hour != null && minute != null) {
+        _selectedNotificationTime = TimeOfDay(hour: hour, minute: minute);
+      } else {
+        _selectedNotificationTime = null;
+      }
+      _isLoadingSettings = false;
+    });
+  }
+
+  // --- Fungsi Menyimpan Pengaturan (Tidak Berubah) ---
+  Future<void> _saveSettings(bool enabled, TimeOfDay? time) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kNotificationEnabledKey, enabled);
+    if (time != null) {
+      await prefs.setInt(_kNotificationTimeHourKey, time.hour);
+      await prefs.setInt(_kNotificationTimeMinuteKey, time.minute);
+    } else {
+      await prefs.remove(_kNotificationTimeHourKey);
+      await prefs.remove(_kNotificationTimeMinuteKey);
+    }
+  }
+
+  // --- Fungsi Logout (Tidak Berubah) ---
   Future<void> _handleLogout() async {
+    // ... (Kode Logout Anda)
     final bool? confirmLogout = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -61,10 +109,10 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
   }
-  // --- Akhir Fungsi Logout ---
 
-  // --- Fungsi Hapus Akun ---
+  // --- Fungsi Hapus Akun (Tidak Berubah) ---
   Future<void> _handleDeleteAccount() async {
+    // ... (Kode Hapus Akun Anda)
     final User? user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -157,20 +205,128 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
   }
-  // --- Akhir Fungsi Hapus Akun ---
+
+  // --- FUNGSI NOTIFIKASI YANG DIPERBARUI ---
+  Future<void> _handleDailyNotificationChange(bool newValue) async {
+    final notificationService = NotificationService();
+
+    if (newValue == true) {
+      // --- PENGGUNA MENCOBA MENGAKTIFKAN ---
+
+      // 1. Cek Izin Alarm
+      final PermissionStatus status =
+          await Permission.scheduleExactAlarm.status;
+
+      if (!status.isGranted) {
+        // 2. Jika izin belum ada, tampilkan dialog penjelasan
+        if (mounted) {
+          await _showAlarmPermissionDialog();
+        }
+        // Berhenti di sini. Toggle akan otomatis kembali ke 'off'
+        // karena kita tidak memanggil setState(true)
+        return;
+      }
+
+      // 3. Jika izin SUDAH ADA, lanjutkan ke TimePicker
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime:
+            _selectedNotificationTime ?? const TimeOfDay(hour: 8, minute: 0),
+        helpText: 'Pilih Waktu Notifikasi Harian',
+        cancelText: 'Batal',
+        confirmText: 'Pilih',
+      );
+
+      if (pickedTime != null) {
+        // --- Pengguna memilih waktu (tidak cancel) ---
+        setState(() {
+          _dailyNotificationEnabled = true;
+          _selectedNotificationTime = pickedTime;
+        });
+
+        await notificationService.scheduleDailyNotification(pickedTime);
+        await _saveSettings(true, pickedTime);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Notifikasi harian diatur untuk ${pickedTime.format(context)}',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        // --- Pengguna menekan 'Batal' di time picker ---
+      }
+    } else {
+      // --- PENGGUNA MENONAKTIFKAN toggle ---
+      setState(() {
+        _dailyNotificationEnabled = false;
+        _selectedNotificationTime = null;
+      });
+
+      await notificationService.cancelAllNotifications();
+      await _saveSettings(false, null);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Notifikasi harian dinonaktifkan.'),
+            backgroundColor: Colors.grey,
+          ),
+        );
+      }
+    }
+  }
+  // --- AKHIR FUNGSI NOTIFIKASI ---
+
+  // --- FUNGSI BARU: Dialog Izin Alarm ---
+  Future<void> _showAlarmPermissionDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Izin Diperlukan'),
+          content: const Text(
+            'Untuk memastikan notifikasi harian dapat muncul tepat waktu, MoodWise memerlukan izin "Alarm & Pengingat".\n\nKetuk "Buka Pengaturan" untuk mengaktifkannya.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Buka Pengaturan'),
+              onPressed: () {
+                openAppSettings(); // <-- Buka pengaturan aplikasi
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+  // --- AKHIR FUNGSI BARU ---
 
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF3B82F6);
     const Color dangerRed = Colors.redAccent;
 
-    // Ambil user terbaru SETIAP KALI BUILD
-    // Ini penting agar nama bisa di-refresh setelah diedit
     final User? currentUser = FirebaseAuth.instance.currentUser;
 
-    final String userName =
-        currentUser?.displayName ?? "Pengguna"; // <-- Jauh lebih bersih
+    final String userName = currentUser?.displayName ?? "Pengguna";
     final String userEmail = currentUser?.email ?? "email@example.com";
+
+    final String? notificationTimeText =
+        (_dailyNotificationEnabled && _selectedNotificationTime != null)
+        ? 'Diatur untuk: ${_selectedNotificationTime!.format(context)}'
+        : null;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -192,7 +348,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 const SizedBox(height: 15),
                 Text(
-                  userName, // <-- Nama akan ter-refresh di sini
+                  userName,
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -214,9 +370,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 _buildProfileOptionRow(
                   icon: Icons.edit_outlined,
                   text: 'Edit Profile',
-                  // --- UBAH FUNGSI ONTAP INI ---
                   onTap: () async {
-                    // Navigasi ke EditProfilePage dan tunggu hasilnya
                     final bool? profileUpdated = await Navigator.push<bool>(
                       context,
                       MaterialPageRoute(
@@ -224,29 +378,48 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     );
 
-                    // Jika hasilnya 'true' (berarti update berhasil),
-                    // panggil setState untuk me-refresh UI halaman ini
                     if (profileUpdated == true) {
                       setState(() {
-                        // Tidak perlu melakukan apa-apa di sini,
-                        // build() akan otomatis dipanggil ulang
-                        // dan mengambil data currentUser yang baru.
+                        // Build akan dipanggil ulang
                       });
                     }
                   },
-                  // --- AKHIR PERUBAHAN ONTAP ---
                 ),
                 _buildDivider(),
-                _buildSwitchOptionRow(
-                  icon: Icons.notifications_none_outlined,
-                  text: 'Daily Notification',
-                  value: _dailyNotificationEnabled,
-                  onChanged: (value) {
-                    setState(() {
-                      _dailyNotificationEnabled = value;
-                    });
-                  },
-                ),
+                // Tampilkan loading atau switch
+                _isLoadingSettings
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 15.0,
+                          vertical: 28.0,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.notifications_none_outlined,
+                              color: Colors.black54,
+                            ),
+                            SizedBox(width: 15),
+                            Expanded(
+                              child: Text(
+                                'Memuat pengaturan notifikasi...',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.black54,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _buildSwitchOptionRow(
+                        icon: Icons.notifications_none_outlined,
+                        text: 'Daily Notification',
+                        value: _dailyNotificationEnabled,
+                        onChanged: _handleDailyNotificationChange,
+                        subtitle: notificationTimeText,
+                      ),
                 _buildDivider(),
                 _buildSwitchOptionRow(
                   icon: Icons.warning_amber_rounded,
@@ -361,27 +534,42 @@ class _ProfilePageState extends State<ProfilePage> {
     required bool value,
     required ValueChanged<bool> onChanged,
     Color iconColor = Colors.black54,
+    String? subtitle,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 10.0),
       child: Row(
         children: [
           Icon(icon, color: iconColor),
           const SizedBox(width: 15),
           Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.black87,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  text,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (subtitle != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2.0),
+                    child: Text(
+                      subtitle,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                    ),
+                  ),
+              ],
             ),
           ),
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: const Color(0xFF3B82F6),
+            activeTrackColor: const Color(0xFF3B82F6).withOpacity(0.5),
+            activeColor: const Color(0xFF3B82F6),
           ),
         ],
       ),
