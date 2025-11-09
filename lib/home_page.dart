@@ -63,6 +63,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
