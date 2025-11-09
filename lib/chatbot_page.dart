@@ -43,9 +43,13 @@ class _ChatbotPageState extends State<ChatbotPage> {
       _speechEnabled = await _speechToText.initialize();
       if (mounted) setState(() {});
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Izin mikrofon diperlukan untuk voice input')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Izin mikrofon diperlukan untuk voice input'),
+          ),
+        );
+      }
     }
   }
 
@@ -100,6 +104,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
   }
 
   void _updateRefs() {
+    // Hanya update ref jika user dan chat ID ada
     if (user != null && _currentChatId != null) {
       _chatSessionRef = FirebaseFirestore.instance
           .collection('users')
@@ -131,7 +136,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
     setState(() => _isLoading = true);
 
     try {
-      final functions = FirebaseFunctions.instanceFor(region: 'asia-southeast2');
+      final functions = FirebaseFunctions.instanceFor(
+        region: 'asia-southeast2',
+      );
       final callable = functions.httpsCallable('sendChatMessage');
 
       final response = await callable.call({
@@ -145,18 +152,90 @@ class _ChatbotPageState extends State<ChatbotPage> {
         setState(() {
           _currentChatId = newChatId;
         });
-        _updateRefs();
+        _updateRefs(); // Pastikan referensi diperbarui ke chat ID baru
       }
 
       _scrollToBottom();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  // --- FUNGSI BARU UNTUK HAPUS CHAT ---
+  Future<void> _handleDeleteChat() async {
+    if (_currentChatId == null || user == null) return;
+
+    // 1. Tampilkan dialog konfirmasi
+    final bool? confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Hapus Riwayat'),
+          content: const Text(
+            'Apakah Anda yakin ingin menghapus percakapan ini? Konteks akan di-reset dan Anda akan memulai percakapan baru.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    // 2. Jika dikonfirmasi, lakukan penghapusan
+    if (confirmDelete == true) {
+      setState(() => _isLoading = true);
+      try {
+        // Hapus dokumen chat session
+        // Catatan: Ini tidak menghapus subkoleksi 'messages' secara otomatis
+        // tapi akan membuatnya tidak bisa diakses & memulai sesi baru.
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user!.uid)
+            .collection('chats')
+            .doc(_currentChatId)
+            .delete();
+
+        // Reset state di frontend
+        setState(() {
+          _currentChatId = null;
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Riwayat percakapan telah dihapus.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal menghapus riwayat: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+  // --- AKHIR FUNGSI BARU ---
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +245,17 @@ class _ChatbotPageState extends State<ChatbotPage> {
         backgroundColor: const Color(0xFF3B82F6),
         foregroundColor: Colors.white,
         elevation: 2,
+        // --- PERUBAHAN: Tambahkan actions di AppBar ---
+        actions: [
+          // Tampilkan tombol hanya jika ada chat aktif dan tidak sedang loading
+          if (_currentChatId != null && !_isLoading)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Hapus Riwayat',
+              onPressed: _handleDeleteChat,
+            ),
+        ],
+        // --- AKHIR PERUBAHAN ---
       ),
       body: user == null
           ? const Center(child: Text('Silakan login terlebih dahulu'))
@@ -176,8 +266,11 @@ class _ChatbotPageState extends State<ChatbotPage> {
                   StreamBuilder<DocumentSnapshot>(
                     stream: _chatSessionRef.snapshots(),
                     builder: (context, snapshot) {
-                      if (!snapshot.hasData) return const SizedBox();
-                      final data = snapshot.data!.data() as Map<String, dynamic>?;
+                      if (!snapshot.hasData || !snapshot.data!.exists) {
+                        return const SizedBox();
+                      }
+                      final data =
+                          snapshot.data!.data() as Map<String, dynamic>?;
                       final summary = data?['summary'] as String?;
                       if (summary == null || summary == 'Percakapan dimulai.') {
                         return const SizedBox();
@@ -192,7 +285,11 @@ class _ChatbotPageState extends State<ChatbotPage> {
                         ),
                         child: Text(
                           'Konteks: $summary',
-                          style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: Colors.blue),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.blue,
+                          ),
                         ),
                       );
                     },
@@ -201,15 +298,26 @@ class _ChatbotPageState extends State<ChatbotPage> {
                 // === CHAT MESSAGES ===
                 Expanded(
                   child: _currentChatId == null
-                      ? const Center(child: Text('Mulai percakapan dengan MoodBuddy!'))
+                      ? const Center(
+                          child: Text('Mulai percakapan dengan MoodBuddy!'),
+                        )
                       : StreamBuilder<QuerySnapshot>(
                           stream: _messagesRef.orderBy('timestamp').snapshots(),
                           builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return const Center(child: CircularProgressIndicator());
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
                             }
-                            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                              return const Center(child: Text('Belum ada pesan.'));
+                            // Jika snapshot tidak ada data ATAU
+                            // snapshot.data!.docs kosong, tampilkan pesan
+                            if (!snapshot.hasData ||
+                                snapshot.data!.docs.isEmpty) {
+                              // Ini akan muncul sesaat setelah chat dihapus
+                              return const Center(
+                                child: Text('Belum ada pesan.'),
+                              );
                             }
 
                             final messages = snapshot.data!.docs;
@@ -218,25 +326,40 @@ class _ChatbotPageState extends State<ChatbotPage> {
                               padding: const EdgeInsets.all(12),
                               itemCount: messages.length,
                               itemBuilder: (context, index) {
-                                final msg = messages[index].data() as Map<String, dynamic>;
+                                final msg =
+                                    messages[index].data()
+                                        as Map<String, dynamic>;
                                 final isUser = msg['role'] == 'user';
 
                                 return Align(
-                                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                                  alignment: isUser
+                                      ? Alignment.centerRight
+                                      : Alignment.centerLeft,
                                   child: Container(
-                                    margin: const EdgeInsets.symmetric(vertical: 4),
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    margin: const EdgeInsets.symmetric(
+                                      vertical: 4,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: isUser ? Colors.blue : Colors.grey[200],
+                                      color: isUser
+                                          ? Colors.blue
+                                          : Colors.grey[200],
                                       borderRadius: BorderRadius.circular(18),
                                     ),
                                     constraints: BoxConstraints(
-                                      maxWidth: MediaQuery.of(context).size.width * 0.75,
+                                      maxWidth:
+                                          MediaQuery.of(context).size.width *
+                                          0.75,
                                     ),
                                     child: Text(
                                       msg['message'] ?? '',
                                       style: TextStyle(
-                                        color: isUser ? Colors.white : Colors.black87,
+                                        color: isUser
+                                            ? Colors.white
+                                            : Colors.black87,
                                         fontSize: 15,
                                       ),
                                     ),
@@ -263,15 +386,18 @@ class _ChatbotPageState extends State<ChatbotPage> {
                             hintText: _isListening
                                 ? 'Mendengarkan...'
                                 : _isLoading
-                                    ? 'Mengirim...'
-                                    : 'Ceritakan perasaanmu...',
+                                ? 'Mengirim...'
+                                : 'Ceritakan perasaanmu...',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(25),
                               borderSide: BorderSide.none,
                             ),
                             filled: true,
                             fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
                             // === ICON MIC DI KANAN DALAM ===
                             suffixIcon: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -281,10 +407,20 @@ class _ChatbotPageState extends State<ChatbotPage> {
                                   icon: AnimatedSwitcher(
                                     duration: const Duration(milliseconds: 200),
                                     child: _isListening
-                                        ? const Icon(Icons.stop, key: ValueKey('stop'), color: Colors.red)
-                                        : const Icon(Icons.mic, key: ValueKey('mic'), color: Colors.grey),
+                                        ? const Icon(
+                                            Icons.stop,
+                                            key: ValueKey('stop'),
+                                            color: Colors.red,
+                                          )
+                                        : const Icon(
+                                            Icons.mic,
+                                            key: ValueKey('mic'),
+                                            color: Colors.grey,
+                                          ),
                                   ),
-                                  onPressed: _isListening ? _stopListening : _startListening,
+                                  onPressed: _isListening
+                                      ? _stopListening
+                                      : _startListening,
                                 ),
                                 // === TOMBOL KIRIM ===
                                 IconButton(
@@ -297,7 +433,10 @@ class _ChatbotPageState extends State<ChatbotPage> {
                                             strokeWidth: 2,
                                           ),
                                         )
-                                      : const Icon(Icons.send, color: Color(0xFF3B82F6)),
+                                      : const Icon(
+                                          Icons.send,
+                                          color: Color(0xFF3B82F6),
+                                        ),
                                   onPressed: _isLoading ? null : _sendMessage,
                                 ),
                               ],

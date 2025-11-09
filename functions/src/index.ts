@@ -1,5 +1,5 @@
 // functions/src/index.ts
-import {onDocumentCreated, onDocumentUpdated} from "firebase-functions/v2/firestore";
+import {onDocumentCreated, onDocumentUpdated, onDocumentDeleted} from "firebase-functions/v2/firestore"; // <-- PERHATIKAN: onDocumentDeleted ditambahkan
 import {onCall} from "firebase-functions/v2/https";
 import * as functionsV1 from "firebase-functions/v1";
 import * as admin from "firebase-admin";
@@ -323,6 +323,53 @@ export const sendChatMessage = onCall(
 
 
 // ====================================================================
+// === FUNGSI BARU DITAMBAHKAN DI SINI ===
+// ====================================================================
+
+/**
+ * Fungsi ini dipicu (triggered) setiap kali sebuah dokumen
+ * di 'users/{userId}/chats/{chatId}' dihapus (misalnya, dari aplikasi Flutter).
+ * Ini akan secara otomatis menghapus SEMUA sub-koleksi
+ * (yaitu 'messages') di bawah dokumen yang dihapus itu.
+ */
+export const cleanupChatMessages = onDocumentDeleted(
+  {
+    document: "users/{userId}/chats/{chatId}",
+    region: "asia-southeast2",
+    // Berikan waktu & memori lebih, karena penghapusan rekursif bisa besar
+    timeoutSeconds: 300,
+    memory: "1GiB",
+  },
+  async (event) => {
+    const userId = event.params.userId;
+    const chatId = event.params.chatId;
+
+    logger.log(`[CHAT DELETED] Mulai membersihkan sub-koleksi 'messages' untuk chat: ${chatId} (user: ${userId})`);
+
+    // Buat referensi ke dokumen yang BARU SAJA DIHAPUS
+    const chatDocRef = db
+      .collection("users")
+      .doc(userId)
+      .collection("chats")
+      .doc(chatId);
+
+    try {
+      // Panggil recursiveDelete pada referensi tersebut.
+      // Ini akan menghapus semua sub-koleksi di bawah path itu
+      // (seperti 'messages') bahkan jika dokumen utamanya sudah hilang.
+      await admin.firestore().recursiveDelete(chatDocRef);
+
+      logger.log(`[CHAT DELETED] Berhasil membersihkan sub-koleksi untuk chat: ${chatId}`);
+      return null;
+    } catch (error: any) {
+      logger.error(`[CHAT DELETED] Error saat membersihkan chat ${chatId}:`, error);
+      throw new Error(`Gagal membersihkan sub-koleksi chat untuk ${chatId}: ${error.message}`);
+    }
+  }
+);
+
+
+// ====================================================================
 // === FUNGSI v1 UNTUK HAPUS DATA PENGGUNA (PERBAIKAN) ===
 // ====================================================================
 
@@ -375,3 +422,5 @@ export const cleanupUserDataOnDelete = functionsV1
       throw new Error(`Gagal membersihkan data pengguna untuk ${uid}: ${error.message}`);
     }
   });
+
+// PERBAIKAN: Kurung kurawal '}' ekstra yang ada di file Anda sebelumnya telah dihapus.
