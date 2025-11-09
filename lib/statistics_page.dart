@@ -30,7 +30,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
   late List<PieChartSectionData> _pieChartSections;
   int _touchedIndex = -1;
 
-  // Style конstan dari home_page.dart
+  // Style konstan dari home_page.dart
   final Color primaryBlue = const Color(0xFF3B82F6);
   final TextStyle headerStyle = const TextStyle(
     fontSize: 16,
@@ -122,6 +122,20 @@ class _StatisticsPageState extends State<StatisticsPage> {
     }
   }
 
+  // --- FUNGSI HELPER: Untuk menyingkat label bar chart ---
+  String _getShortMoodLabel(String mood) {
+    switch (mood) {
+      case 'Sangat Baik':
+        return 'S. Baik';
+      case 'Sangat Buruk':
+        return 'S. Buruk';
+      case 'Biasa Saja':
+        return 'Biasa';
+      default:
+        return mood; // 'Baik', 'Buruk'
+    }
+  }
+
   // --- Fungsi untuk Mengolah Data Grafik Bar ---
   BarChartData _mainBarData() {
     final Map<String, int> moodCounts = _getMoodSummary()['moodCounts'];
@@ -164,7 +178,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
               ),
             ),
           ],
-          showingTooltipIndicators: [0],
         ),
       );
     }
@@ -205,7 +218,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
                   axisSide: meta.axisSide,
                   space: 4,
                   child: Text(
-                    moods[value.toInt()].split(' ').first,
+                    _getShortMoodLabel(moods[value.toInt()]),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 10,
@@ -388,7 +401,8 @@ class _StatisticsPageState extends State<StatisticsPage> {
     _pieChartSections = moodCounts.entries.map((entry) {
       final isTouched =
           (moodCounts.keys.toList().indexOf(entry.key) == _touchedIndex);
-      final double radius = isTouched ? 65.0 : 55.0; // Radius diperbesar
+      // Radius dikecilkan
+      final double radius = isTouched ? 60.0 : 50.0;
       final double percentage = (entry.value / total) * 100;
 
       return PieChartSectionData(
@@ -426,49 +440,49 @@ class _StatisticsPageState extends State<StatisticsPage> {
             },
           ),
           sections: _pieChartSections,
-          centerSpaceRadius: 45, // Disesuaikan
+          // Radius tengah dikecilkan
+          centerSpaceRadius: 40,
           sectionsSpace: 2,
         ),
       ),
     );
   }
 
-  // --- WIDGET BARU: Legenda untuk Pie Chart ---
+  // --- Legenda: Menggunakan 'Wrap' ---
   Widget _buildLegend(Map<String, int> moodCounts) {
     if (moodCounts.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
+    // Wrap akan otomatis memindahkan item ke bawah jika tidak muat
+    return Wrap(
+      spacing: 12.0, // Jarak horizontal antar item
+      runSpacing: 8.0, // Jarak vertikal antar baris
+      alignment: WrapAlignment.start, // Ratakan ke kiri
       children: moodCounts.entries.map((entry) {
         return _buildLegendItem(_getMoodColor(entry.key), entry.key);
       }).toList(),
     );
   }
 
+  // --- Item Legenda: Menggunakan 'Row' ---
   Widget _buildLegendItem(Color color, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        children: [
-          Container(
-            width: 16,
-            height: 16,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(4),
-            ),
+    return Row(
+      mainAxisSize: MainAxisSize.min, // Hanya memakan tempat seperlunya
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          // Font dikecilkan
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        ),
+      ],
     );
   }
 
@@ -504,42 +518,62 @@ class _StatisticsPageState extends State<StatisticsPage> {
     );
   }
 
-  // --- Widget Filter Dropdown (Sudah Ada) ---
-  Widget _buildFilterDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10.0),
-        border: Border.all(color: Colors.grey.shade300, width: 1.0),
+  // --- PERUBAHAN: Widget Filter Baru (Menggantikan Dropdown) ---
+  Widget _buildFilterToggle() {
+    // List untuk status terpilih
+    final List<bool> isSelected = [
+      _currentFilter == '7 Hari Terakhir',
+      _currentFilter == '30 Hari Terakhir',
+    ];
+
+    return ToggleButtons(
+      isSelected: isSelected,
+      onPressed: (int index) {
+        // Hanya update jika tombol yang berbeda ditekan
+        if (index == 0 && _currentFilter != '7 Hari Terakhir') {
+          setState(() {
+            _currentFilter = '7 Hari Terakhir';
+          });
+          _fetchMoodData('7 Hari Terakhir');
+        } else if (index == 1 && _currentFilter != '30 Hari Terakhir') {
+          setState(() {
+            _currentFilter = '30 Hari Terakhir';
+          });
+          _fetchMoodData('30 Hari Terakhir');
+        }
+      },
+      // Styling agar terlihat seperti di gambar
+      color: Colors.grey[700],
+      selectedColor: primaryBlue,
+      fillColor: primaryBlue.withOpacity(0.1),
+      selectedBorderColor: primaryBlue,
+      borderRadius: BorderRadius.circular(10.0),
+      borderColor: Colors.grey.shade300,
+      borderWidth: 1.5,
+      constraints: BoxConstraints(
+        // Atur minHeight agar tidak terlalu kecil
+        minHeight: 40.0,
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _currentFilter,
-          icon: const Icon(Icons.arrow_drop_down),
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 14,
-          ), // Ukuran font disesuaikan
-          onChanged: (String? newValue) {
-            if (newValue != null) {
-              setState(() {
-                _currentFilter = newValue;
-              });
-              _fetchMoodData(newValue);
-            }
-          },
-          items: <String>['7 Hari Terakhir', '30 Hari Terakhir']
-              .map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              })
-              .toList(),
+      children: <Widget>[
+        // Padding untuk memberi ruang di dalam tombol
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            '7 Hari Terakhir',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
         ),
-      ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            '30 Hari Terakhir',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
+  // --- AKHIR PERUBAHAN ---
 
   @override
   Widget build(BuildContext context) {
@@ -563,7 +597,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
           color: Colors.black,
           fontSize: 18,
           fontWeight: FontWeight.w600,
-          // fontFamily: 'Poppins' // Anda bisa tambahkan ini jika perlu
         ),
       ),
       backgroundColor: Colors.white, // Samakan background
@@ -573,6 +606,11 @@ class _StatisticsPageState extends State<StatisticsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            // --- PERUBAHAN: Filter dipindah ke atas ---
+            Center(child: _buildFilterToggle()),
+            const SizedBox(height: 25), // Jarak antar bagian
+            // --- AKHIR PERUBAHAN ---
+
             // --- BAGIAN 1: STATISTIK UMUM ---
             Text('Statistik Umum', style: headerStyle),
             const SizedBox(height: 10),
@@ -581,14 +619,9 @@ class _StatisticsPageState extends State<StatisticsPage> {
                 : _buildOverallStats(),
             const SizedBox(height: 25), // Jarak antar bagian
             // --- BAGIAN 2: FREKUENSI MOOD ---
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text('Frekuensi Mood', style: headerStyle),
-                _buildFilterDropdown(),
-              ],
-            ),
+            // --- PERUBAHAN: Dropdown dihilangkan dari Row ---
+            Text('Frekuensi Mood', style: headerStyle),
+            // --- AKHIR PERUBAHAN ---
             const SizedBox(height: 15),
             // Menggunakan style Container dari home_page.dart
             Container(
@@ -627,20 +660,24 @@ class _StatisticsPageState extends State<StatisticsPage> {
                       height: 180,
                       child: Center(child: CircularProgressIndicator()),
                     )
+                  // Layout Row (kiri-kanan) yang sudah diperbaiki
                   : Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Pie Chart
                         Expanded(
-                          flex: 2, // Chart ambil 2/3 ruang
+                          flex: 3, // Ambil 3/5 ruang
                           child: _buildPieChartSection(
                             summary['moodCounts'] as Map<String, int>,
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        // Jarak
+                        const SizedBox(width: 24),
                         // Legenda
                         Expanded(
-                          flex: 1, // Legenda ambil 1/3 ruang
+                          flex: 2, // Ambil 2/5 ruang
                           child: _buildLegend(
+                            // _buildLegend akan mereturn 'Wrap'
                             summary['moodCounts'] as Map<String, int>,
                           ),
                         ),

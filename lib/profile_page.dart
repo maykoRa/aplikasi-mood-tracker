@@ -569,7 +569,7 @@ class _ProfilePageState extends State<ProfilePage> {
             value: value,
             onChanged: onChanged,
             activeTrackColor: const Color(0xFF3B82F6).withOpacity(0.5),
-            activeColor: const Color(0xFF3B82F6),
+            activeThumbColor: const Color(0xFF3B82F6),
           ),
         ],
       ),
