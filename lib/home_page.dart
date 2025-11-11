@@ -5,8 +5,8 @@ import 'package:intl/intl.dart';
 import 'add_entry_page.dart';
 import 'entry_detail_page.dart';
 import 'profile_page.dart';
-import 'statistics_page.dart';
-import 'chatbot_page.dart';
+import 'history_page.dart';
+import 'features_page.dart';
 
 class HomePage extends StatefulWidget {
   final String? newReflection;
@@ -19,13 +19,16 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
 
+  // --- PERUBAHAN DI SINI ---
+  // Halaman Stats dan Chatbot diganti dengan History dan Features
   static final List<Widget> _widgetOptions = <Widget>[
     const HomeScreenContent(),
-    const StatisticsPage(),
+    const HistoryPage(), // <-- GANTI: Dulu StatisticsPage
     const Scaffold(body: Center(child: Text('Placeholder FAB'))),
-    const ChatbotPage(),
+    const FeaturesPage(), // <-- GANTI: Dulu ChatbotPage
     const ProfilePage(),
   ];
+  // --- AKHIR PERUBAHAN ---
 
   void _onItemTapped(int index) {
     if (index != 2) {
@@ -63,7 +66,10 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Properti ini (dari perbaikan kita sebelumnya) SANGAT PENTING
+      // agar keyboard di ChatbotPage tidak merusak UI.
       resizeToAvoidBottomInset: false,
+
       body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
@@ -88,15 +94,19 @@ class _HomePageState extends State<HomePage> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildBottomNavItem(Icons.home, 'Home', 0),
-                  _buildBottomNavItem(Icons.bar_chart, 'Stats', 1),
+                  _buildBottomNavItem(Icons.home_outlined, 'Home', 0),
+                  // --- PERUBAHAN DI SINI ---
+                  _buildBottomNavItem(Icons.history, 'History', 1),
+                  // --- AKHIR PERUBAHAN ---
                 ],
               ),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildBottomNavItem(Icons.chat_bubble, 'Chatbot', 3),
-                  _buildBottomNavItem(Icons.person, 'Profile', 4),
+                  // --- PERUBAHAN DI SINI ---
+                  _buildBottomNavItem(Icons.apps_outlined, 'Features', 3),
+                  // --- AKHIR PERUBAHAN ---
+                  _buildBottomNavItem(Icons.person_outline, 'Profile', 4),
                 ],
               ),
             ],
@@ -110,22 +120,26 @@ class _HomePageState extends State<HomePage> {
     final bool isSelected = _selectedIndex == index;
     final Color color = isSelected ? const Color(0xFF3B82F6) : Colors.grey;
     IconData displayIcon = icon;
+
+    // --- PERUBAHAN DI SINI ---
+    // Mengganti ikon yang 'terpilih'
     if (isSelected) {
       switch (index) {
         case 0:
-          displayIcon = Icons.home_filled;
+          displayIcon = Icons.home; // Menjadi solid
           break;
         case 1:
-          displayIcon = Icons.bar_chart;
+          displayIcon = Icons.history; // Menjadi solid (sama)
           break;
         case 3:
-          displayIcon = Icons.chat_bubble;
+          displayIcon = Icons.apps; // Menjadi solid
           break;
         case 4:
-          displayIcon = Icons.person;
+          displayIcon = Icons.person; // Menjadi solid
           break;
       }
     }
+    // --- AKHIR PERUBAHAN ---
 
     return MaterialButton(
       minWidth: 40,
@@ -140,6 +154,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
+
+// =========================================================================
+// HOMESCREENCONTENT (TIDAK BERUBAH, TETAP SAMA SEPERTI SEBELUMNYA)
+// =========================================================================
 
 class HomeScreenContent extends StatefulWidget {
   const HomeScreenContent({super.key});
