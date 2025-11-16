@@ -14,7 +14,6 @@ class EntryDetailPage extends StatefulWidget {
 }
 
 class _EntryDetailPageState extends State<EntryDetailPage> {
-  // FUNGSI BARU: Mendapatkan warna berdasarkan mood
   Color _getMoodColor(String mood) {
     switch (mood) {
       case 'Sangat Baik':
@@ -32,7 +31,6 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
     }
   }
 
-  // Fungsi Hapus
   Future<void> _deleteEntry(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -55,42 +53,30 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
 
     if (confirmed == true) {
       try {
-        // Hapus entri dari Firestore
         await FirebaseFirestore.instance
             .collection('mood_entries')
             .doc(widget.entryId)
             .delete();
 
         if (mounted) {
-          // Navigasi ke Home Page.
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
-              builder: (context) =>
-                  const HomePage(newReflection: '✅ Entri berhasil dihapus.'),
+              builder: (context) => const HomePage(newReflection: 'Entri berhasil dihapus.'),
             ),
-            (route) => false, // Hapus semua rute di stack
+            (route) => false,
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Gagal menghapus entri: $e'),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text('Gagal menghapus: $e'), backgroundColor: Colors.red),
           );
         }
       }
     }
   }
 
-  // Fungsi Update (Tidak Berubah)
-  void _editEntry(
-    BuildContext context,
-    String mood,
-    String journal,
-    DateTime timestamp,
-  ) async {
+  void _editEntry(BuildContext context, String mood, String journal, DateTime timestamp) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -103,12 +89,10 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
       ),
     );
 
-    if (result is String) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result), backgroundColor: Colors.green),
-        );
-      }
+    if (result is String && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result), backgroundColor: Colors.green),
+      );
     }
   }
 
@@ -130,32 +114,38 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
             .doc(widget.entryId)
             .snapshots(),
         builder: (context, snapshot) {
-          // KASUS 1: Koneksi Error atau belum siap
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Terjadi error: ${snapshot.error}'));
+            return Center(child: Text('Error: ${snapshot.error}'));
           }
-
-          // KASUS 2: Dokumen dihapus (data null)
           if (!snapshot.hasData || !snapshot.data!.exists) {
-            // Kita sudah menangani navigasi di _deleteEntry, tapi ini untuk pengamanan.
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: Text('Entri tidak ditemukan.'));
           }
 
-          // KASUS 3: Dokumen valid
           final data = snapshot.data!.data() as Map<String, dynamic>;
-          final mood = data['mood'] ?? '';
+          final mood = data['mood'] ?? 'Tidak diketahui';
           final journal = data['journal'] ?? '';
           final timestamp = (data['timestamp'] as Timestamp).toDate();
-          final reflection = data['reflection'] ?? 'Menghasilkan refleksi...';
-          final isGenerating =
-              !data.containsKey('reflection') ||
-              data['reflection'] == null ||
-              data['reflection'] == 'Menghasilkan refleksi...';
 
-          final moodColor = _getMoodColor(mood); // <-- Ambil warna mood
+          // PERBAIKAN: Reflection lebih aman
+          final reflectionRaw = data['reflection'];
+          final reflection = (reflectionRaw is String && reflectionRaw.trim().isNotEmpty)
+              ? reflectionRaw
+              : 'AI sedang membuat refleksi...';
+          final isGenerating = reflectionRaw == null ||
+                               reflectionRaw is! String ||
+                               (reflectionRaw as String).trim().isEmpty;
+
+          final moodColor = _getMoodColor(mood);
+
+          // PERBAIKAN: Hanya edit jika hari ini
+          final today = DateTime.now();
+          final entryDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+          final isToday = entryDate.year == today.year &&
+                         entryDate.month == today.month &&
+                         entryDate.day == today.day;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -166,49 +156,38 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      DateFormat(
-                        'EEEE, d MMM yyyy HH:mm',
-                        'id_ID',
-                      ).format(timestamp),
+                      DateFormat('EEEE, d MMM yyyy HH:mm', 'id_ID').format(timestamp),
                       style: const TextStyle(fontSize: 16, color: Colors.grey),
                     ),
-                    // Tombol Edit
-                    TextButton.icon(
-                      onPressed: () =>
-                          _editEntry(context, mood, journal, timestamp),
-                      icon: const Icon(Icons.edit, size: 18),
-                      label: const Text('Edit'),
-                    ),
+                    // TOMBOL EDIT HANYA UNTUK HARI INI
+                    if (isToday)
+                      TextButton.icon(
+                        onPressed: () => _editEntry(context, mood, journal, timestamp),
+                        icon: const Icon(Icons.edit, size: 18),
+                        label: const Text('Edit'),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  // Menggunakan warna mood di sini
                   'Mood: $mood',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: moodColor, // <-- APLIKASIKAN WARNA
+                    color: moodColor,
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  'Jurnal:',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                ),
+                const Text('Jurnal:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 Text(journal, style: const TextStyle(fontSize: 16)),
                 const SizedBox(height: 30),
-                const Text(
-                  'Refleksi Diri:',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                ),
+                const Text('Refleksi Diri:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    // Mengubah warna kontainer refleksi sedikit berdasarkan mood
                     color: moodColor.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: moodColor.withOpacity(0.4)),
@@ -220,27 +199,18 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                             SizedBox(
                               width: 16,
                               height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: moodColor, // Warna loading indikator
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2, color: moodColor),
                             ),
                             const SizedBox(width: 12),
-                            const Text(
-                              'AI sedang membuat refleksi...',
-                              style: TextStyle(fontSize: 15),
-                            ),
+                            const Text('AI sedang membuat refleksi...', style: TextStyle(fontSize: 15)),
                           ],
                         )
-                      : Text(
-                          reflection,
-                          style: const TextStyle(fontSize: 16, height: 1.5),
-                        ),
+                      : Text(reflection, style: const TextStyle(fontSize: 16, height: 1.5)),
                 ),
                 const SizedBox(height: 20),
                 if (isGenerating)
                   const Text(
-                    'Refleksi akan muncul otomatis setelah AI selesai menganalisis.',
+                    'Refleksi akan muncul otomatis setelah AI selesai.',
                     style: TextStyle(color: Colors.grey, fontSize: 13),
                   ),
               ],

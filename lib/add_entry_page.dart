@@ -17,7 +17,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
   final TextEditingController _journalController = TextEditingController();
   String? _selectedMood;
   bool _isLoading = false;
-  DateTime _selectedDateTime = DateTime.now();
+  DateTime _selectedDateTime = DateTime.now(); // Otomatis sekarang
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   String _localeId = 'id_ID';
@@ -97,8 +97,8 @@ class _AddEntryPageState extends State<AddEntryPage> {
     setState(() {
       final separator =
           _textBeforeListening.isEmpty || _textBeforeListening.endsWith(' ')
-          ? ''
-          : ' ';
+              ? ''
+              : ' ';
       String recognized = result.recognizedWords;
       _journalController.text = _textBeforeListening + separator + recognized;
       _journalController.selection = TextSelection.fromPosition(
@@ -110,66 +110,9 @@ class _AddEntryPageState extends State<AddEntryPage> {
     });
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDateTime,
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
-      locale: const Locale('id', 'ID'),
-    );
-    if (picked != null && picked != _selectedDateTime) {
-      final newDateTime = DateTime(
-        picked.year,
-        picked.month,
-        picked.day,
-        _selectedDateTime.hour,
-        _selectedDateTime.minute,
-      );
-      if (newDateTime.isAfter(DateTime.now())) {
-        setState(() => _selectedDateTime = DateTime.now());
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tidak bisa memilih waktu di masa depan.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      } else {
-        setState(() => _selectedDateTime = newDateTime);
-      }
-    }
-  }
-
-  Future<void> _selectTime(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
-    );
-    if (picked != null) {
-      final newDateTime = DateTime(
-        _selectedDateTime.year,
-        _selectedDateTime.month,
-        _selectedDateTime.day,
-        picked.hour,
-        picked.minute,
-      );
-      if (newDateTime.isAfter(DateTime.now())) {
-        setState(() => _selectedDateTime = DateTime.now());
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tidak bisa memilih waktu di masa depan.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      } else {
-        setState(() => _selectedDateTime = newDateTime);
-      }
-    }
-  }
-
   // MODIFIKASI: FUNGSI INI AKAN MENUNGGU REFLEKSI DARI CLOUD FUNCTION
   Future<void> _saveEntry() async {
-    // Validasi (tidak berubah)
+    // Validasi
     if (_selectedMood == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -189,46 +132,40 @@ class _AddEntryPageState extends State<AddEntryPage> {
       );
       return;
     }
-    if (_selectedDateTime.isAfter(DateTime.now())) {
-      setState(() => _selectedDateTime = DateTime.now());
-    }
 
     setState(() => _isLoading = true);
 
     try {
-      // 1. Simpan entri dan Dapatkan Reference dokumen
+      // 1. Simpan entri
       final newEntryRef = await FirebaseFirestore.instance
           .collection('mood_entries')
           .add({
-            'userId': user.uid,
-            'mood': _selectedMood!,
-            'journal': _journalController.text.trim(),
-            'timestamp': Timestamp.fromDate(_selectedDateTime),
-            'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
-            'reflection': null, // Inisialisasi field untuk dipantau
-          });
+        'userId': user.uid,
+        'mood': _selectedMood!,
+        'journal': _journalController.text.trim(),
+        'timestamp': Timestamp.fromDate(_selectedDateTime),
+        'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
+        'reflection': null,
+      });
 
-      // 2. TUNGGU Refleksi AI terisi dengan timeout 30 detik
+      // 2. TUNGGU Refleksi AI (timeout 30 detik)
       String aiReflection =
           'Maaf, refleksi AI memakan waktu terlalu lama (>30 detik). Silakan cek detail entri Anda nanti.';
       const timeoutDuration = Duration(seconds: 30);
 
       try {
         final reflectionSnapshot = await Future.any([
-          // Tunggu hingga field 'reflection' terisi
           newEntryRef.snapshots().firstWhere((doc) {
             final data = doc.data();
             return data != null &&
                 data.containsKey('reflection') &&
                 data['reflection'] != null;
           }),
-          // Timeout
           Future.delayed(timeoutDuration).then((_) => null),
         ]);
 
         if (reflectionSnapshot != null) {
           aiReflection = reflectionSnapshot.data()!['reflection'] as String;
-          // Pesan khusus jika AI gagal (Error/Maaf)
           if (aiReflection.startsWith('Error:') ||
               aiReflection.startsWith('Maaf,')) {
             aiReflection =
@@ -241,15 +178,14 @@ class _AddEntryPageState extends State<AddEntryPage> {
             'Entri berhasil disimpan. Gagal memuat refleksi secara langsung.';
       }
 
-      // 3. Navigasi ke HomePage dan kirim HASIL refleksi
+      // 3. Navigasi ke HomePage
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
-            // Mengirim HASIL refleksi AI
             builder: (context) => HomePage(newReflection: aiReflection),
           ),
-          (route) => false, // Hapus semua rute di bawahnya
+          (route) => false,
         );
       }
     } catch (e) {
@@ -270,7 +206,6 @@ class _AddEntryPageState extends State<AddEntryPage> {
 
   @override
   Widget build(BuildContext context) {
-    // ... (widget build tetap sama)
     const Color primaryBlue = Color(0xFF3B82F6);
     final String displayDateTime = DateFormat(
       'EEEE, d MMM yyyy HH:mm',
@@ -278,6 +213,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
     ).format(_selectedDateTime);
     const Color lightOutlineColor = Color(0xFFE0E0E0);
     const Color hintTextColor = Colors.grey;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Entri Baru'),
@@ -295,39 +231,34 @@ class _AddEntryPageState extends State<AddEntryPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Tanggal & Waktu
-              InkWell(
-                onTap: _isLoading
-                    ? null
-                    : () async {
-                        await _selectDate(context);
-                        if (mounted) await _selectTime(context);
-                      },
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      displayDateTime,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const Icon(
-                      Icons.edit_calendar_outlined,
+              // Tanggal & Waktu (Otomatis, TIDAK BISA DIUBAH)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.access_time,
+                    color: Colors.grey,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    displayDateTime,
+                    style: const TextStyle(
+                      fontSize: 16,
                       color: Colors.grey,
-                      size: 20,
+                      fontWeight: FontWeight.w500,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               const SizedBox(height: 15),
+
               const Text(
                 'Bagaimana perasaanmu hari ini?',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
+
               // Pilihan Mood
               Wrap(
                 alignment: WrapAlignment.spaceAround,
@@ -362,11 +293,13 @@ class _AddEntryPageState extends State<AddEntryPage> {
                 }).toList(),
               ),
               const SizedBox(height: 30),
+
               const Text(
                 'Ceritakan sedikit tentang harimu',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 10),
+
               // Jurnal + Mic
               TextField(
                 controller: _journalController,
@@ -408,13 +341,39 @@ class _AddEntryPageState extends State<AddEntryPage> {
                     tooltip: 'Tekan untuk bicara',
                     onPressed: _speechEnabled && !_isLoading
                         ? (_speechToText.isListening
-                              ? _stopListening
-                              : _startListening)
+                            ? _stopListening
+                            : _startListening)
                         : null,
                   ),
                 ),
               ),
-              const SizedBox(height: 30),
+
+              // Notifikasi mic aktif
+              if (_speechToText.isListening)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.keyboard_voice,
+                        color: Colors.red,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Mic aktif – sedang mendengarkan...',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              SizedBox(height: _speechToText.isListening ? 10 : 30),
+
               // Tombol Simpan
               SizedBox(
                 width: double.infinity,

@@ -233,6 +233,29 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     }
   }
 
+  Stream<QuerySnapshot<Map<String, dynamic>>> _getTodayEntriesStream() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return Stream<QuerySnapshot<Map<String, dynamic>>>.empty();
+    }
+
+    final now = DateTime.now();
+    final startOfDay = Timestamp.fromDate(
+      DateTime(now.year, now.month, now.day),
+    );
+    final endOfDay = Timestamp.fromDate(
+      DateTime(now.year, now.month, now.day, 23, 59, 59),
+    );
+
+    return FirebaseFirestore.instance
+        .collection('mood_entries')
+        .where('userId', isEqualTo: user.uid)
+        .where('timestamp', isGreaterThanOrEqualTo: startOfDay)
+        .where('timestamp', isLessThanOrEqualTo: endOfDay)
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF3B82F6);
@@ -282,7 +305,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                         fontSize: 15,
                         color: Colors.black87,
                         height: 1.4,
+                        fontWeight: FontWeight.bold,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -303,12 +328,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             const SizedBox(height: 15),
 
             // StreamBuilder
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('mood_entries')
-                  .where('userId', isEqualTo: user?.uid)
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: _getTodayEntriesStream(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
@@ -318,15 +339,17 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                     ),
                   );
                 }
+
                 if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
+
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 30.0),
                       child: Text(
-                        'Belum ada entri.\nYuk, tambahkan mood hari ini!',
+                        'Belum ada entri hari ini.\nYuk, tambahkan mood kamu!',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.grey, fontSize: 16),
                       ),
@@ -337,7 +360,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 final entries = snapshot.data!.docs;
                 return Column(
                   children: entries.map((doc) {
-                    final entry = doc.data() as Map<String, dynamic>;
+                    final entry = doc.data();
                     final mood = entry['mood'] as String? ?? 'Tidak Diketahui';
                     final journal = entry['journal'] as String? ?? '';
                     final timestamp = entry['timestamp'] as Timestamp?;
