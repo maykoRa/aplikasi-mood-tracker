@@ -44,11 +44,6 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final String userName = user?.displayName?.split(' ').first ??
-        user?.email?.split('@').first ??
-        "Pengguna";
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -131,7 +126,9 @@ class _HistoryPageState extends State<HistoryPage> {
                   },
                   calendarStyle: CalendarStyle(
                     outsideDaysVisible: false,
-                    weekendTextStyle: const TextStyle(color: Color.fromARGB(255, 230, 18, 3)),
+                    weekendTextStyle: const TextStyle(
+                      color: Color.fromARGB(255, 230, 18, 3),
+                    ),
                     selectedDecoration: const BoxDecoration(
                       color: Color(0xFF3B82F6),
                       shape: BoxShape.circle,
@@ -149,7 +146,10 @@ class _HistoryPageState extends State<HistoryPage> {
                   headerStyle: const HeaderStyle(
                     formatButtonVisible: false,
                     titleCentered: true,
-                    titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    titleTextStyle: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -187,23 +187,31 @@ class _HistoryPageState extends State<HistoryPage> {
                         itemBuilder: (context, index) {
                           final doc = selectedEvents[index];
                           final data = doc.data() as Map<String, dynamic>;
-                          final mood = data['mood'] as String? ?? 'Tidak Diketahui';
+                          final mood =
+                              data['mood'] as String? ?? 'Tidak Diketahui';
                           final journal = data['journal'] as String? ?? '';
-                          final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+                          final timestamp = (data['timestamp'] as Timestamp?)
+                              ?.toDate();
                           final dateStr = timestamp != null
-                              ? DateFormat('d MMMM yyyy', 'id_ID').format(timestamp)
+                              ? DateFormat(
+                                  'd MMMM yyyy',
+                                  'id_ID',
+                                ).format(timestamp)
                               : '';
 
                           return _buildHistoryCard(
                             emoji: _getEmoji(mood),
                             moodText: mood,
-                            description: journal.isNotEmpty ? journal : 'Tidak ada catatan.',
+                            description: journal.isNotEmpty
+                                ? journal
+                                : 'Tidak ada catatan.',
                             date: dateStr,
                             borderColor: _getBorderColor(mood),
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => EntryDetailPage(entryId: doc.id),
+                                builder: (_) =>
+                                    EntryDetailPage(entryId: doc.id),
                               ),
                             ),
                           );
@@ -256,15 +264,21 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   String _getEmoji(String mood) {
-  switch (mood) {
-    case 'Sangat Baik': return '😄';
-    case 'Baik': return '😊';
-    case 'Biasa Saja': return '😐';
-    case 'Buruk': return '😟';
-    case 'Sangat Buruk': return '😠';
-    default: return 'Unknown';
+    switch (mood) {
+      case 'Sangat Baik':
+        return '😄';
+      case 'Baik':
+        return '😊';
+      case 'Biasa Saja':
+        return '😐';
+      case 'Buruk':
+        return '😟';
+      case 'Sangat Buruk':
+        return '😠';
+      default:
+        return 'Unknown';
+    }
   }
-}
 
   Widget _buildHistoryCard({
     required String emoji,

@@ -2,6 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+// --- PERUBAHAN: Import STT ---
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 class UpdateEntryPage extends StatefulWidget {
   final String entryId;
@@ -27,6 +30,12 @@ class _UpdateEntryPageState extends State<UpdateEntryPage> {
   late DateTime _selectedDateTime;
   bool _isLoading = false;
 
+  // --- Variabel State STT ---
+  final SpeechToText _speechToText = SpeechToText();
+  bool _speechEnabled = false;
+  String _localeId = 'id_ID';
+  String _textBeforeListening = '';
+
   final List<Map<String, String>> _moods = [
     {'emoji': '😄', 'text': 'Sangat Baik'},
     {'emoji': '😊', 'text': 'Baik'},
@@ -41,15 +50,84 @@ class _UpdateEntryPageState extends State<UpdateEntryPage> {
     _journalController = TextEditingController(text: widget.currentJournal);
     _selectedMood = widget.currentMood;
     _selectedDateTime = widget.currentTimestamp;
+    _initSpeech(); // Panggil init STT
   }
 
   @override
   void dispose() {
     _journalController.dispose();
+    _speechToText.stop(); // Hentikan STT
     super.dispose();
   }
 
-  // Pilih Tanggal (Sama seperti AddEntryPage)
+  // --- Fungsi-fungsi STT (Copy dari add_entry_page) ---
+  void _initSpeech() async {
+    try {
+      _speechEnabled = await _speechToText.initialize(
+        onError: (errorNotification) =>
+            print('STT onError: $errorNotification'),
+        onStatus: (status) => print('STT onStatus: $status'),
+      );
+      if (_speechEnabled) {
+        var locales = await _speechToText.locales();
+        var indonesianLocale = locales.firstWhere(
+          (locale) => locale.localeId == 'id_ID',
+          orElse: () => locales.first,
+        );
+        _localeId = indonesianLocale.localeId;
+        print("Using locale: $_localeId");
+      } else {
+        print("Speech recognition not available");
+      }
+    } catch (e) {
+      print("Error initializing speech recognition: $e");
+      _speechEnabled = false;
+    }
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _startListening() async {
+    if (!_speechEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fitur suara tidak tersedia saat ini.')),
+      );
+      return;
+    }
+    _textBeforeListening = _journalController.text;
+    await _speechToText.listen(
+      onResult: _onSpeechResult,
+      localeId: _localeId,
+      listenFor: const Duration(minutes: 1),
+      listenMode: ListenMode.confirmation,
+    );
+    if (mounted) setState(() {});
+  }
+
+  void _stopListening() async {
+    await _speechToText.stop();
+    if (mounted) setState(() {});
+  }
+
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    setState(() {
+      final separator =
+          _textBeforeListening.isEmpty || _textBeforeListening.endsWith(' ')
+          ? ''
+          : ' ';
+      String recognized = result.recognizedWords;
+      _journalController.text = _textBeforeListening + separator + recognized;
+      _journalController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _journalController.text.length),
+      );
+      if (result.finalResult) {
+        _textBeforeListening = _journalController.text;
+      }
+    });
+  }
+  // --- Akhir Fungsi STT ---
+
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -80,7 +158,6 @@ class _UpdateEntryPageState extends State<UpdateEntryPage> {
     }
   }
 
-  // Pilih Waktu (Sama seperti AddEntryPage)
   Future<void> _selectTime(BuildContext context) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -109,16 +186,12 @@ class _UpdateEntryPageState extends State<UpdateEntryPage> {
   }
 
   Future<void> _updateEntry() async {
-    // --- PERBAIKAN: Kondisi if (_selectedMood == null) dihapus karena _selectedMood
-    //              dijamin non-nullable (String) setelah initState. ---
-
     setState(() => _isLoading = true);
 
     try {
       final newJournal = _journalController.text.trim();
       final mustRegenerateReflection = newJournal != widget.currentJournal;
 
-      // Perbaikan dari error sebelumnya: Deklarasi eksplisit Map<String, dynamic>
       final Map<String, dynamic> updateData = {
         'mood': _selectedMood,
         'journal': newJournal,
@@ -126,12 +199,10 @@ class _UpdateEntryPageState extends State<UpdateEntryPage> {
         'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
       };
 
-      // Jika jurnal berubah, set 'reflection' menjadi null untuk memicu Cloud Function
       if (mustRegenerateReflection) {
         updateData['reflection'] = null;
       }
 
-      // Update entri di Firestore
       await FirebaseFirestore.instance
           .collection('mood_entries')
           .doc(widget.entryId)
@@ -141,8 +212,6 @@ class _UpdateEntryPageState extends State<UpdateEntryPage> {
         String successMessage = mustRegenerateReflection
             ? 'Entri berhasil diperbarui! Refleksi AI baru sedang dibuat.'
             : 'Entri berhasil diperbarui.';
-
-        // Kembali ke halaman detail
         Navigator.pop(context, successMessage);
       }
     } catch (e) {
@@ -190,13 +259,23 @@ class _UpdateEntryPageState extends State<UpdateEntryPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      displayDateTime,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.access_time,
+                          color: Colors.grey,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          displayDateTime,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                     const Icon(
                       Icons.edit_calendar_outlined,
@@ -224,7 +303,7 @@ class _UpdateEntryPageState extends State<UpdateEntryPage> {
                         ? null
                         : () => setState(() => _selectedMood = mood['text']!),
                     child: Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? primaryBlue.withOpacity(0.1)
@@ -239,7 +318,7 @@ class _UpdateEntryPageState extends State<UpdateEntryPage> {
                       ),
                       child: Text(
                         mood['emoji']!,
-                        style: const TextStyle(fontSize: 35),
+                        style: const TextStyle(fontSize: 28),
                       ),
                     ),
                   );
@@ -284,9 +363,54 @@ class _UpdateEntryPageState extends State<UpdateEntryPage> {
                       width: 1.5,
                     ),
                   ),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _speechToText.isListening ? Icons.mic : Icons.mic_none,
+                    ),
+                    color: _speechToText.isListening ? Colors.red : primaryBlue,
+                    tooltip: 'Tekan untuk bicara',
+                    onPressed: _speechEnabled && !_isLoading
+                        ? (_speechToText.isListening
+                              ? _stopListening
+                              : _startListening)
+                        : null,
+                  ),
                 ),
               ),
-              const SizedBox(height: 30),
+
+              // Indikator "Pill" STT
+              if (_speechToText.isListening)
+                Container(
+                  alignment: Alignment.center,
+                  margin: const EdgeInsets.only(top: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.red[100]!),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.mic, color: Colors.red, size: 16),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Mic aktif – sedang mendengarkan...',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              SizedBox(height: _speechToText.isListening ? 10 : 30),
+
               // Tombol Simpan Perubahan
               SizedBox(
                 width: double.infinity,
@@ -302,6 +426,8 @@ class _UpdateEntryPageState extends State<UpdateEntryPage> {
                     textStyle: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      // --- PERBAIKAN FONT: Menambahkan fontFamily ---
+                      fontFamily: 'Poppins',
                     ),
                   ),
                   child: _isLoading

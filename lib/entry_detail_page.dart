@@ -61,7 +61,8 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
-              builder: (context) => const HomePage(newReflection: 'Entri berhasil dihapus.'),
+              builder: (context) =>
+                  const HomePage(newReflection: 'Entri berhasil dihapus.'),
             ),
             (route) => false,
           );
@@ -69,14 +70,22 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal menghapus: $e'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text('Gagal menghapus: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
     }
   }
 
-  void _editEntry(BuildContext context, String mood, String journal, DateTime timestamp) async {
+  void _editEntry(
+    BuildContext context,
+    String mood,
+    String journal,
+    DateTime timestamp,
+  ) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -131,21 +140,28 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
 
           // PERBAIKAN: Reflection lebih aman
           final reflectionRaw = data['reflection'];
-          final reflection = (reflectionRaw is String && reflectionRaw.trim().isNotEmpty)
+          final reflection =
+              (reflectionRaw is String && reflectionRaw.trim().isNotEmpty)
               ? reflectionRaw
               : 'AI sedang membuat refleksi...';
-          final isGenerating = reflectionRaw == null ||
-                               reflectionRaw is! String ||
-                               (reflectionRaw as String).trim().isEmpty;
+          final isGenerating =
+              reflectionRaw == null ||
+              reflectionRaw is! String ||
+              (reflectionRaw).trim().isEmpty;
 
           final moodColor = _getMoodColor(mood);
 
           // PERBAIKAN: Hanya edit jika hari ini
           final today = DateTime.now();
-          final entryDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
-          final isToday = entryDate.year == today.year &&
-                         entryDate.month == today.month &&
-                         entryDate.day == today.day;
+          final entryDate = DateTime(
+            timestamp.year,
+            timestamp.month,
+            timestamp.day,
+          );
+          final isToday =
+              entryDate.year == today.year &&
+              entryDate.month == today.month &&
+              entryDate.day == today.day;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -156,13 +172,17 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      DateFormat('EEEE, d MMM yyyy HH:mm', 'id_ID').format(timestamp),
+                      DateFormat(
+                        'EEEE, d MMM yyyy HH:mm',
+                        'id_ID',
+                      ).format(timestamp),
                       style: const TextStyle(fontSize: 16, color: Colors.grey),
                     ),
                     // TOMBOL EDIT HANYA UNTUK HARI INI
                     if (isToday)
                       TextButton.icon(
-                        onPressed: () => _editEntry(context, mood, journal, timestamp),
+                        onPressed: () =>
+                            _editEntry(context, mood, journal, timestamp),
                         icon: const Icon(Icons.edit, size: 18),
                         label: const Text('Edit'),
                       ),
@@ -178,11 +198,17 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text('Jurnal:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                const Text(
+                  'Jurnal:',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 8),
                 Text(journal, style: const TextStyle(fontSize: 16)),
                 const SizedBox(height: 30),
-                const Text('Refleksi Diri:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                const Text(
+                  'Refleksi Diri:',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 8),
                 Container(
                   width: double.infinity,
@@ -199,13 +225,22 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                             SizedBox(
                               width: 16,
                               height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: moodColor),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: moodColor,
+                              ),
                             ),
                             const SizedBox(width: 12),
-                            const Text('AI sedang membuat refleksi...', style: TextStyle(fontSize: 15)),
+                            const Text(
+                              'AI sedang membuat refleksi...',
+                              style: TextStyle(fontSize: 15),
+                            ),
                           ],
                         )
-                      : Text(reflection, style: const TextStyle(fontSize: 16, height: 1.5)),
+                      : Text(
+                          reflection,
+                          style: const TextStyle(fontSize: 16, height: 1.5),
+                        ),
                 ),
                 const SizedBox(height: 20),
                 if (isGenerating)

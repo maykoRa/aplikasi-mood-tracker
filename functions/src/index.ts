@@ -4,19 +4,27 @@ import {
   onDocumentUpdated,
   onDocumentDeleted,
 } from "firebase-functions/v2/firestore";
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as functionsV1 from "firebase-functions/v1";
 import * as admin from "firebase-admin";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import {GoogleGenerativeAI} from "@google/generative-ai";
 import * as logger from "firebase-functions/logger";
 
 admin.initializeApp();
 const db = admin.firestore();
 
-// ==================== BATCH DELETE HELPER ====================
+/**
+ * Menghapus koleksi Firestore beserta semua dokumen di dalamnya secara rekursif
+ * menggunakan batch.
+ * @param {admin.firestore.CollectionReference} collectionRef Referensi ke
+ * koleksi yang ingin dihapus.
+ * @param {number} batchSize Jumlah dokumen yang akan dihapus per batch.
+ * @return {Promise<void>} Promise yang resolve ketika semua dokumen
+ * telah dihapus.
+ */
 async function deleteCollection(
   collectionRef: admin.firestore.CollectionReference,
-  batchSize: number = 500
+  batchSize = 500
 ) {
   const snapshot = await collectionRef.limit(batchSize).get();
   if (snapshot.empty) return;
@@ -50,12 +58,13 @@ export const generateReflection = onDocumentCreated(
     const snapshot = event.data;
     if (!snapshot) return;
     const data = snapshot.data();
-    if (!data?.mood || !data?.journal || !data?.userId || data.reflection)
+    if (!data?.mood || !data?.journal || !data?.userId || data.reflection) {
       return;
+    }
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await snapshot.ref.update({ reflection: "Error: AI Key hilang." });
+      await snapshot.ref.update({reflection: "Error: AI Key hilang."});
       return;
     }
 
@@ -67,7 +76,7 @@ export const generateReflection = onDocumentCreated(
     while (!text && retryCount < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
         // Memanggil method text()
         const result = await model.generateContent(
           SYSTEM_PROMPT_REFLECTION(data.mood, data.journal)
@@ -138,7 +147,7 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
     while (!text && retryCount < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
         // Memanggil method text()
         const result = await model.generateContent(
           SYSTEM_PROMPT_REFLECTION(data.mood, data.journal)
@@ -219,10 +228,10 @@ export const generateDailySummary = onDocumentCreated(
         .join("\n");
 
       const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-      if (!GEMINI_API_KEY) return; 
+      if (!GEMINI_API_KEY) return;
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const result = await model.generateContent(
         SYSTEM_PROMPT_SUMMARY(journal)
       );
@@ -241,7 +250,7 @@ export const generateDailySummary = onDocumentCreated(
             periodStart: sevenDaysAgo,
             entryCount: entriesSnap.size,
           },
-          { merge: true }
+          {merge: true}
         );
 
       logger.log(`Summary generated: ${summary.substring(0, 50)}...`);
@@ -272,10 +281,18 @@ Format respons HANYA dalam JSON berikut:
 JANGAN gunakan format lain, JANGAN berikan penjelasan di luar JSON. Gunakan bahasa Indonesia santai.
 `;
 
+// Definisikan tipe kembalian di sini
+type TimestampRange = {
+  start: admin.firestore.Timestamp;
+  end: admin.firestore.Timestamp;
+};
+
 /**
- * Helper: Mengkonversi string tanggal (YYYY-MM-DD) ke rentang Timestamp (awal dan akhir hari)
+ * Mengkonversi string tanggal (YYYY-MM-DD) ke rentang Timestamp (awal dan akhir hari).
+ * @param {string} dateString String tanggal dalam format YYYY-MM-DD.
+ * @return {TimestampRange} Objek berisi timestamp awal dan akhir hari.
  */
-function getDateRange(dateString: string): { start: admin.firestore.Timestamp; end: admin.firestore.Timestamp } {
+function getDateRange(dateString: string): TimestampRange { //
   const date = new Date(dateString);
   date.setHours(0, 0, 0, 0);
   const start = admin.firestore.Timestamp.fromDate(date);
@@ -284,7 +301,7 @@ function getDateRange(dateString: string): { start: admin.firestore.Timestamp; e
   endOfDay.setHours(23, 59, 59, 999);
   const end = admin.firestore.Timestamp.fromDate(endOfDay);
 
-  return { start, end };
+  return {start, end};
 }
 
 // === getDailyReflection (FIXED & STABIL) ===
@@ -309,7 +326,7 @@ export const getDailyReflection = onCall(
     }
 
     try {
-      const { start, end } = getDateRange(dateString);
+      const {start, end} = getDateRange(dateString);
 
       const entriesSnap = await db
         .collection("mood_entries")
@@ -331,7 +348,7 @@ export const getDailyReflection = onCall(
         .join("\n---\n");
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
 
       // GUNAKAN SYSTEM_PROMPT_DAILY_REFLECTION!
       const prompt = SYSTEM_PROMPT_DAILY_REFLECTION(journals);
@@ -348,11 +365,11 @@ export const getDailyReflection = onCall(
         summary = Array.isArray(json.summary) ? json.summary.slice(0, 5) : [];
         motivation = json.motivation || motivation;
       } catch (e) {
-        logger.warn("Gagal parse JSON dari AI", { text, error: e });
-        summary = journals.split("\n---\n").slice(0, 5).map(s => s.substring(0, 120));
+        logger.warn("Gagal parse JSON dari AI", {text, error: e});
+        summary = journals.split("\n---\n").slice(0, 5).map((s) => s.substring(0, 120));
       }
 
-      return { summary, motivation };
+      return {summary, motivation};
     } catch (error: any) {
       logger.error("getDailyReflection Error:", {
         message: error.message,
@@ -374,7 +391,7 @@ export const sendChatMessage = onCall(
     memory: "1GiB",
   },
   async (request) => {
-    const { userId, message, chatId } = request.data;
+    const {userId, message, chatId} = request.data;
     if (!userId || !message) throw new Error("Missing userId or message");
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -415,7 +432,7 @@ export const sendChatMessage = onCall(
       });
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const currentSummary =
         (await sessionRef.get()).data()?.summary || "Percakapan dimulai.";
       const recentSnap = await sessionRef
@@ -475,7 +492,7 @@ export const sendChatMessage = onCall(
         // Memanggil method text()
         const summaryResult = await model.generateContent(summaryPrompt);
         const newSummary = summaryResult.response.text().trim();
-        await sessionRef.update({ summary: newSummary });
+        await sessionRef.update({summary: newSummary});
         logger.log(`Chat summary updated: ${newSummary}`);
       }
 
@@ -517,7 +534,7 @@ export const cleanupChatMessages = onDocumentDeleted(
         `[CHAT DELETED] Berhasil hapus messages untuk chat: ${chatId}`
       );
     } catch (error: any) {
-      logger.error(`[CHAT DELETED] Gagal hapus messages:`, error);
+      logger.error("[CHAT DELETED] Gagal hapus messages:", error);
     }
   }
 );
@@ -551,6 +568,6 @@ export const cleanupUserDataOnDelete = functionsV1
 
       logger.log(`[USER DELETED] Selesai bersihkan data user: ${uid}`);
     } catch (error: any) {
-      logger.error(`[USER DELETED] Error:`, error);
+      logger.error("[USER DELETED] Error:", error);
     }
   });

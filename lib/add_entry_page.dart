@@ -17,7 +17,7 @@ class _AddEntryPageState extends State<AddEntryPage> {
   final TextEditingController _journalController = TextEditingController();
   String? _selectedMood;
   bool _isLoading = false;
-  DateTime _selectedDateTime = DateTime.now(); // Otomatis sekarang
+  final DateTime _selectedDateTime = DateTime.now(); // Otomatis sekarang
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   String _localeId = 'id_ID';
@@ -97,8 +97,8 @@ class _AddEntryPageState extends State<AddEntryPage> {
     setState(() {
       final separator =
           _textBeforeListening.isEmpty || _textBeforeListening.endsWith(' ')
-              ? ''
-              : ' ';
+          ? ''
+          : ' ';
       String recognized = result.recognizedWords;
       _journalController.text = _textBeforeListening + separator + recognized;
       _journalController.selection = TextSelection.fromPosition(
@@ -110,7 +110,6 @@ class _AddEntryPageState extends State<AddEntryPage> {
     });
   }
 
-  // MODIFIKASI: FUNGSI INI AKAN MENUNGGU REFLEKSI DARI CLOUD FUNCTION
   Future<void> _saveEntry() async {
     // Validasi
     if (_selectedMood == null) {
@@ -140,13 +139,13 @@ class _AddEntryPageState extends State<AddEntryPage> {
       final newEntryRef = await FirebaseFirestore.instance
           .collection('mood_entries')
           .add({
-        'userId': user.uid,
-        'mood': _selectedMood!,
-        'journal': _journalController.text.trim(),
-        'timestamp': Timestamp.fromDate(_selectedDateTime),
-        'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
-        'reflection': null,
-      });
+            'userId': user.uid,
+            'mood': _selectedMood!,
+            'journal': _journalController.text.trim(),
+            'timestamp': Timestamp.fromDate(_selectedDateTime),
+            'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
+            'reflection': null,
+          });
 
       // 2. TUNGGU Refleksi AI (timeout 30 detik)
       String aiReflection =
@@ -231,15 +230,11 @@ class _AddEntryPageState extends State<AddEntryPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Tanggal & Waktu (Otomatis, TIDAK BISA DIUBAH)
+              // Tanggal & Waktu
               Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.access_time,
-                    color: Colors.grey,
-                    size: 18,
-                  ),
+                  const Icon(Icons.access_time, color: Colors.grey, size: 18),
                   const SizedBox(width: 6),
                   Text(
                     displayDateTime,
@@ -271,7 +266,9 @@ class _AddEntryPageState extends State<AddEntryPage> {
                         ? null
                         : () => setState(() => _selectedMood = mood['text']),
                     child: Container(
-                      padding: const EdgeInsets.all(10),
+                      // --- PERUBAHAN 1: Padding Emoji ---
+                      // Mengubah dari 10 menjadi 8
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? primaryBlue.withOpacity(0.1)
@@ -286,7 +283,9 @@ class _AddEntryPageState extends State<AddEntryPage> {
                       ),
                       child: Text(
                         mood['emoji']!,
-                        style: const TextStyle(fontSize: 35),
+                        // --- PERUBAHAN 2: Ukuran Emoji ---
+                        // Mengubah dari 32 menjadi 28
+                        style: const TextStyle(fontSize: 28),
                       ),
                     ),
                   );
@@ -308,6 +307,9 @@ class _AddEntryPageState extends State<AddEntryPage> {
                 decoration: InputDecoration(
                   hintText: 'Tulis ceritamu di sini...',
                   hintStyle: const TextStyle(color: hintTextColor),
+
+                  // --- PERUBAHAN 3: helperText DIHAPUS ---
+                  // helperText: _speechToText.isListening ... (dihapus)
                   contentPadding: const EdgeInsets.symmetric(
                     vertical: 12.0,
                     horizontal: 20.0,
@@ -334,32 +336,47 @@ class _AddEntryPageState extends State<AddEntryPage> {
                     ),
                   ),
                   suffixIcon: IconButton(
+                    // --- PERUBAHAN 4: Logika Ikon Dikembalikan ---
                     icon: Icon(
                       _speechToText.isListening ? Icons.mic : Icons.mic_none,
                     ),
                     color: _speechToText.isListening ? Colors.red : primaryBlue,
+                    // --- Akhir Perubahan 4 ---
                     tooltip: 'Tekan untuk bicara',
                     onPressed: _speechEnabled && !_isLoading
                         ? (_speechToText.isListening
-                            ? _stopListening
-                            : _startListening)
+                              ? _stopListening
+                              : _startListening)
                         : null,
                   ),
                 ),
               ),
 
-              // Notifikasi mic aktif
+              // --- PERUBAHAN 5: Indikator "Pill" yang Lebih Jelas ---
+              // Mengganti Padding lama dengan Container "Chip"
               if (_speechToText.isListening)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
+                Container(
+                  // Mengatur agar rata tengah
+                  alignment: Alignment.center,
+                  margin: const EdgeInsets.only(top: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50], // Latar belakang merah muda
+                    borderRadius: BorderRadius.circular(20), // Rounded
+                    border: Border.all(color: Colors.red[100]!), // Border tipis
+                  ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min, // Agar container tidak full
                     children: [
                       const Icon(
-                        Icons.keyboard_voice,
+                        Icons.mic, // Ikon mic di dalam chip
                         color: Colors.red,
                         size: 16,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       const Text(
                         'Mic aktif – sedang mendengarkan...',
                         style: TextStyle(
@@ -371,7 +388,9 @@ class _AddEntryPageState extends State<AddEntryPage> {
                     ],
                   ),
                 ),
+              // --- Akhir Perubahan 5 ---
 
+              // Menyesuaikan space
               SizedBox(height: _speechToText.isListening ? 10 : 30),
 
               // Tombol Simpan

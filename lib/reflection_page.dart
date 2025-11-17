@@ -29,6 +29,7 @@ class _ReflectionPageState extends State<ReflectionPage> {
   bool _isLoading = true;
   String? _error;
   DateTime _selectedDate = DateTime.now();
+  final Color _themeColor = const Color(0xFF3B82F6);
 
   @override
   void initState() {
@@ -38,29 +39,31 @@ class _ReflectionPageState extends State<ReflectionPage> {
   }
 
   Future<DailyReflection> _callGetDailyReflection(String dateString) async {
-  try {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      throw Exception('Login diperlukan untuk melihat refleksi.');
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Login diperlukan untuk melihat refleksi.');
+      }
+
+      final functions = FirebaseFunctions.instanceFor(
+        region: 'asia-southeast2',
+      );
+      final callable = functions.httpsCallable('getDailyReflection');
+
+      final result = await callable.call(<String, dynamic>{'date': dateString});
+
+      return DailyReflection.fromJson(result.data as Map<String, dynamic>);
+    } on FirebaseFunctionsException catch (e) {
+      if (e.code == 'not-found') {
+        throw Exception(
+          'Fungsi getDailyReflection tidak ditemukan. Cek nama & region.',
+        );
+      }
+      throw Exception('AI Error: ${e.message}');
+    } catch (e) {
+      throw Exception('Koneksi gagal: $e');
     }
-
-    final functions = FirebaseFunctions.instanceFor(region: 'asia-southeast2');
-    final callable = functions.httpsCallable('getDailyReflection');
-
-    final result = await callable.call(<String, dynamic>{
-      'date': dateString,
-    });
-
-    return DailyReflection.fromJson(result.data as Map<String, dynamic>);
-  } on FirebaseFunctionsException catch (e) {
-    if (e.code == 'not-found') {
-      throw Exception('Fungsi getDailyReflection tidak ditemukan. Cek nama & region.');
-    }
-    throw Exception('AI Error: ${e.message}');
-  } catch (e) {
-    throw Exception('Koneksi gagal: $e');
   }
-}
 
   void _fetchDailyReflection(DateTime date) async {
     final dateOnly = DateTime(date.year, date.month, date.day);
@@ -96,8 +99,8 @@ class _ReflectionPageState extends State<ReflectionPage> {
       builder: (context, child) {
         return Theme(
           data: ThemeData.light().copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF3B82F6),
+            colorScheme: ColorScheme.light(
+              primary: _themeColor,
               onPrimary: Colors.white,
               onSurface: Colors.black,
             ),
@@ -111,136 +114,149 @@ class _ReflectionPageState extends State<ReflectionPage> {
     }
   }
 
+  // --- WIDGET YANG DIPERBARUI ---
+  // --- Kartu ini sekarang di-highlight dengan warna tema ---
+
   Widget _buildMotivationCard() {
-    return Container(
+    return Card(
+      elevation: 3.0,
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      decoration: BoxDecoration(
-        color: const Color(0xFF14B8A6),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Container(
-          width: double.infinity,
-          margin: const EdgeInsets.all(20.0),
-          padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Motivasi',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF14B8A6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      // --- PERUBAHAN: Latar belakang kartu diubah jadi warna tema ---
+      color: _themeColor,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          // --- PERUBAHAN: Dibuat crossAxisAlignment.center agar teks motivasi
+          // --- yang di-align center terlihat pas
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+              // --- PERUBAHAN: MainAxisAlignment.center agar ikon & judul di tengah ---
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.lightbulb_outline,
+                  // --- PERUBAHAN: Warna ikon jadi putih ---
+                  color: Colors.white,
+                  size: 24,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _reflectionData?.motivation ?? 'Memuat motivasi...',
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.black87,
-                  fontStyle: FontStyle.italic,
+                const SizedBox(width: 12),
+                const Text(
+                  'Motivasi',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    // --- PERUBAHAN: Warna teks jadi putih ---
+                    color: Colors.white,
+                  ),
                 ),
-                textAlign: TextAlign.center,
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _reflectionData?.motivation ?? 'Memuat motivasi...',
+              style: TextStyle(
+                fontSize: 16,
+                // --- PERUBAHAN: Warna teks jadi putih (sedikit transparan) ---
+                color: Colors.white.withOpacity(0.9),
+                fontStyle: FontStyle.italic,
+                height: 1.4,
               ),
-            ],
-          ),
+              // --- PERUBAHAN: Sesuai permintaan Anda ---
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
   }
 
+  // --- WIDGET INI TETAP (KARTU PUTIH) ---
+  // --- Ini menciptakan kontras yang bagus dengan kartu motivasi ---
+
   Widget _buildSummaryCard() {
     final summary = _reflectionData?.summary ?? [];
 
-    return Container(
+    return Card(
+      elevation: 3.0,
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      padding: const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        color: const Color(0xFF3B82F6),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Rangkuman Kegiatanmu hari ini:',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.summarize_outlined, color: _themeColor, size: 24),
+                const SizedBox(width: 12),
+                Text(
+                  'Rangkuman Kegiatanmu',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: _themeColor,
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 10),
-          if (summary.isEmpty)
-            const Text(
-              'Belum ada entri jurnal pada tanggal ini.',
-              style: TextStyle(fontSize: 16, color: Colors.white70),
-            )
-          else
-            ...summary.asMap().entries.map((entry) {
-              int index = entry.key + 1;
-              String text = entry.value;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$index. ',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        text,
-                        style: const TextStyle(
+            const SizedBox(height: 10),
+            const Divider(),
+            const SizedBox(height: 10),
+            if (summary.isEmpty)
+              const Text(
+                'Belum ada entri jurnal pada tanggal ini.',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              )
+            else
+              ...summary.asMap().entries.map((entry) {
+                int index = entry.key + 1;
+                String text = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$index. ',
+                        style: TextStyle(
                           fontSize: 16,
-                          color: Colors.white,
-                          height: 1.5,
+                          fontWeight: FontWeight.bold,
+                          color: _themeColor,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-        ],
+                      Expanded(
+                        child: Text(
+                          text,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.black87,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+          ],
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    String formattedDate = DateFormat('EEEE, dd MMMM yyyy').format(_selectedDate);
+    String formattedDate = DateFormat(
+      'EEEE, dd MMMM yyyy',
+    ).format(_selectedDate);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Refleksi'),
-        backgroundColor: const Color(0xFF3B82F6),
+        backgroundColor: _themeColor,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -251,29 +267,30 @@ class _ReflectionPageState extends State<ReflectionPage> {
         ],
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 80.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
               child: Text(
                 formattedDate,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF3B82F6),
+                  color: _themeColor,
                 ),
               ),
             ),
             if (_isLoading)
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.all(32.0),
+                  padding: const EdgeInsets.all(32.0),
                   child: Column(
                     children: [
-                      CircularProgressIndicator(color: Color(0xFF3B82F6)),
-                      SizedBox(height: 16),
-                      Text(
+                      CircularProgressIndicator(color: _themeColor),
+                      const SizedBox(height: 16),
+                      const Text(
                         "AI sedang merenung sejenak...",
                         style: TextStyle(color: Colors.grey),
                       ),
@@ -293,14 +310,7 @@ class _ReflectionPageState extends State<ReflectionPage> {
                 ),
               ),
             if (!_isLoading && _reflectionData != null)
-              Column(
-                children: [
-                  _buildMotivationCard(),
-                  const SizedBox(height: 16),
-                  _buildSummaryCard(),
-                ],
-              ),
-            const SizedBox(height: 80),
+              Column(children: [_buildMotivationCard(), _buildSummaryCard()]),
           ],
         ),
       ),
