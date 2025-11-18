@@ -39,6 +39,7 @@ Proyek ini menggunakan kombinasi teknologi frontend dan backend modern:
 
 ## 📂 Struktur Proyek
 
+```
 aplikasi-mood-tracker/ 
     ├── android/ # Kode spesifik Android 
     ├── ios/ # Kode spesifik iOS 
@@ -59,7 +60,7 @@ aplikasi-mood-tracker/
     │ ├── images/ 
     │ └── fonts/ 
     └── pubspec.yaml # Konfigurasi proyek Flutter dan dependensi
-
+```
 ---
 
 ## 🏁 Memulai (Getting Started)
@@ -74,13 +75,13 @@ Untuk menjalankan proyek ini secara lokal, ikuti langkah-langkah berikut:
 **1. Konfigurasi Frontend (Flutter):**
    
    a. **Clone repositori:**
-      ```bash
+      ```
       git clone [https://github.com/username/aplikasi-mood-tracker.git](https://github.com/username/aplikasi-mood-tracker.git)
       cd aplikasi-mood-tracker
       ```
    
    b. **Instal dependensi Flutter:**
-      ```bash
+      ```
       flutter pub get
       ```
    
@@ -91,25 +92,25 @@ Untuk menjalankan proyek ini secara lokal, ikuti langkah-langkah berikut:
       * Unduh file `GoogleService-Info.plist` (untuk iOS) dan letakkan di `ios/Runner/`.
 
    d. **Jalankan aplikasi:**
-      ```bash
+      ```
       flutter run
       ```
 
 **2. Konfigurasi Backend (Firebase Functions):**
 
    a. **Navigasi ke direktori functions:**
-      ```bash
+      ```
       cd functions
       ```
    
    b. **Instal dependensi Node.js:**
-      ```bash
+      ```
       npm install
       ```
    
    c. **Deploy functions:**
       * Pastikan Anda telah login ke Firebase CLI (`firebase login`).
       * Deploy functions Anda:
-          ```bash
+          ```
           firebase deploy --only functions
           ```
