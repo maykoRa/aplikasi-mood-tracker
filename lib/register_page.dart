@@ -2,10 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'home_page.dart'; // Menggunakan navigasi asli Anda
+import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Import Font Awesome yang benar
+import 'home_page.dart';
 
 class RegisterPage extends StatefulWidget {
-  // Mengembalikan constructor asli Anda
   const RegisterPage({super.key});
 
   @override
@@ -19,6 +19,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _obscurePassword = true; // State untuk visibilitas password
 
   @override
   void dispose() {
@@ -28,7 +29,6 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  // Fungsi untuk handle Sign Up
   Future<void> _handleSignUp() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -39,7 +39,6 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      // 1. Buat user di Firebase Authentication
       final UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
             email: _emailController.text.trim(),
@@ -47,25 +46,19 @@ class _RegisterPageState extends State<RegisterPage> {
           );
 
       if (userCredential.user != null) {
-        // --- INI PERBAIKAN PENTING ---
-        // 2.A. Update 'displayName' di Firebase AUTH
-        // Ini adalah baris yang hilang dan menyebabkan nama kosong
         await userCredential.user!.updateDisplayName(
           _nameController.text.trim(),
         );
-        // --- AKHIR PERBAIKAN ---
 
-        // 2.B. Simpan data user ke Firestore (Kode Anda ini sudah benar)
         await FirebaseFirestore.instance
             .collection('users')
             .doc(userCredential.user!.uid)
             .set({
-              'name': _nameController.text.trim(), //
+              'name': _nameController.text.trim(),
               'email': _emailController.text.trim(),
               'createdAt': Timestamp.now(),
             });
 
-        // 3. Navigasi ke Halaman Home (Navigasi asli Anda)
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const HomePage()),
@@ -106,8 +99,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Seluruh UI Anda di sini sudah benar dan tidak diubah
-    // ... (kode UI dari file Anda) ...
     const Color primaryBlue = Color(0xFF3B82F6);
     const Color secondaryBlue = Color(0xFF2563EB);
     const Color lightBlueOutline = Color(0xFFADD8E6);
@@ -269,12 +260,29 @@ class _RegisterPageState extends State<RegisterPage> {
                           },
                         ),
                         const SizedBox(height: 20),
+
+                        // Password Text Field (UPDATED ICON)
                         TextFormField(
                           controller: _passwordController,
                           enabled: !_isLoading,
                           decoration: InputDecoration(
                             hintText: 'Password',
                             hintStyle: const TextStyle(color: hintTextColor),
+                            suffixIcon: IconButton(
+                              icon: FaIcon(
+                                // Menggunakan FaIcon (Font Awesome Icon)
+                                _obscurePassword
+                                    ? FontAwesomeIcons.eyeSlash
+                                    : FontAwesomeIcons.eye,
+                                size: 18, // Ukuran ikon yang lebih kecil
+                                color: hintTextColor,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
                             contentPadding: const EdgeInsets.symmetric(
                               vertical: 10.0,
                               horizontal: 20.0,
@@ -301,7 +309,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                             ),
                           ),
-                          obscureText: true,
+                          obscureText: _obscurePassword,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Please enter your password';
@@ -344,12 +352,11 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
                 const SizedBox(height: 25),
-                // Menggunakan navigasi 'pop' asli Anda
                 GestureDetector(
                   onTap: _isLoading
                       ? null
                       : () {
-                          Navigator.pop(context); //
+                          Navigator.pop(context);
                         },
                   child: RichText(
                     textAlign: TextAlign.center,

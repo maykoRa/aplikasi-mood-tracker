@@ -190,7 +190,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'Mood: $mood',
+                  'Mood : $mood',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -199,14 +199,14 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'Jurnal:',
+                  'Jurnal :',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
                 Text(journal, style: const TextStyle(fontSize: 16)),
                 const SizedBox(height: 30),
                 const Text(
-                  'Refleksi Diri:',
+                  'Pesan Untukmu',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),

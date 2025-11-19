@@ -1,7 +1,8 @@
 // lib/login_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Import Font Awesome
 import 'register_page.dart';
 import 'home_page.dart';
 
@@ -17,7 +18,8 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  bool _isLoading = false; // State untuk loading indicator
+  bool _isLoading = false;
+  bool _obscurePassword = true; // State untuk visibilitas password
 
   @override
   void dispose() {
@@ -26,7 +28,6 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  // Fungsi untuk handle Sign In
   Future<void> _handleSignIn() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -37,29 +38,25 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      // 1. Sign in dengan Firebase Authentication
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // 2. Jika berhasil, navigasi ke Halaman Home
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const HomePage()),
         );
       }
-    } on FirebaseAuthException catch (e) {
-      // Tangani error spesifik dari Firebase Auth
+    } on FirebaseAuthException {
       String message = 'Login gagal. Periksa kembali email dan password Anda.';
-      print('Firebase Auth Error Code: ${e.code}'); // Untuk debug
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
-      // Tangani error umum lainnya
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -85,61 +82,50 @@ class _LoginPageState extends State<LoginPage> {
     const Color hintTextColor = Colors.grey;
 
     return Scaffold(
-      backgroundColor: Colors.white, // Background putih
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(
               horizontal: 20.0,
               vertical: 30.0,
-            ), // Sesuaikan padding utama
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo
-                Image.asset(
-                  'assets/images/login-page-logo.png', // Logo tanpa background
-                  height: 120, // Sedikit lebih besar?
-                ),
+                Image.asset('assets/images/login-page-logo.png', height: 120),
                 const SizedBox(height: 10),
-
-                // Welcome Text (lebih kecil)
                 const Text(
                   'Welcome to MoodWise',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 18, // Ukuran lebih kecil
-                    fontWeight: FontWeight.w500, // Medium
-                    color: Colors.black54, // Warna sedikit pudar
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black54,
                   ),
                 ),
-                const SizedBox(height: 40), // Jarak lebih besar sebelum card
-                // Sign In Title
+                const SizedBox(height: 40),
                 const Text(
                   'SIGN IN',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 28, // Sedikit lebih besar
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: secondaryBlue, // Sedikit pudar
+                    color: secondaryBlue,
                   ),
                 ),
                 const SizedBox(height: 30),
-
-                // Card Container untuk Form
                 Container(
                   padding: const EdgeInsets.all(25.0),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(
-                      10.0,
-                    ), // Sudut lebih tumpul
+                    borderRadius: BorderRadius.circular(10.0),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.withOpacity(0.15),
                         spreadRadius: 3,
                         blurRadius: 10,
-                        offset: const Offset(0, 5), // Shadow tipis
+                        offset: const Offset(0, 5),
                       ),
                     ],
                   ),
@@ -148,28 +134,24 @@ class _LoginPageState extends State<LoginPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Email Text Field
                         TextFormField(
                           controller: _emailController,
-                          enabled: !_isLoading, // Disable saat loading
+                          enabled: !_isLoading,
                           decoration: InputDecoration(
-                            hintText: 'Email', // Gunakan hintText
+                            hintText: 'Email',
                             hintStyle: const TextStyle(color: hintTextColor),
                             contentPadding: const EdgeInsets.symmetric(
                               vertical: 10.0,
                               horizontal: 20.0,
-                            ), // Padding dalam field
+                            ),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                15.0,
-                              ), // Sudut lebih tumpul
+                              borderRadius: BorderRadius.circular(15.0),
                               borderSide: const BorderSide(
                                 color: lightBlueOutline,
                                 width: 1.0,
-                              ), // Border biru muda tipis
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              // Border saat tidak fokus
                               borderRadius: BorderRadius.circular(15.0),
                               borderSide: const BorderSide(
                                 color: lightBlueOutline,
@@ -177,12 +159,11 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              // Border saat fokus
                               borderRadius: BorderRadius.circular(15.0),
                               borderSide: const BorderSide(
                                 color: primaryBlue,
                                 width: 1.5,
-                              ), // Border biru lebih tebal
+                              ),
                             ),
                           ),
                           keyboardType: TextInputType.emailAddress,
@@ -196,14 +177,30 @@ class _LoginPageState extends State<LoginPage> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 20), // Sesuaikan jarak
-                        // Password Text Field
+                        const SizedBox(height: 20),
+
+                        // Password Text Field (UPDATED ICON)
                         TextFormField(
                           controller: _passwordController,
-                          enabled: !_isLoading, // Disable saat loading
+                          enabled: !_isLoading,
                           decoration: InputDecoration(
                             hintText: 'Password',
                             hintStyle: const TextStyle(color: hintTextColor),
+                            suffixIcon: IconButton(
+                              icon: FaIcon(
+                                // Menggunakan FaIcon (Font Awesome Icon)
+                                _obscurePassword
+                                    ? FontAwesomeIcons.eyeSlash
+                                    : FontAwesomeIcons.eye,
+                                size: 18, // Ukuran ikon yang lebih kecil
+                                color: hintTextColor,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
                             contentPadding: const EdgeInsets.symmetric(
                               vertical: 10.0,
                               horizontal: 20.0,
@@ -230,7 +227,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                           ),
-                          obscureText: true,
+                          obscureText: _obscurePassword,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Please enter your password';
@@ -238,20 +235,16 @@ class _LoginPageState extends State<LoginPage> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 35), // Jarak ke tombol
-                        // Sign In Button
+                        const SizedBox(height: 35),
+
                         ElevatedButton(
                           onPressed: _isLoading ? null : _handleSignIn,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryBlue,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 10,
-                            ), // Padding vertikal tombol
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                30.0,
-                              ), // Sudut sangat tumpul (pil)
+                              borderRadius: BorderRadius.circular(30.0),
                             ),
                             textStyle: const TextStyle(
                               fontSize: 16,
@@ -271,13 +264,10 @@ class _LoginPageState extends State<LoginPage> {
                               : const Text('Sign In'),
                         ),
                         const SizedBox(height: 15),
-
-                        // Sign Up Button (Outlined Style)
                         OutlinedButton(
                           onPressed: _isLoading
                               ? null
                               : () {
-                                  // Nonaktifkan saat loading
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -291,17 +281,15 @@ class _LoginPageState extends State<LoginPage> {
                             side: const BorderSide(
                               color: primaryBlue,
                               width: 1.5,
-                            ), // Outline biru
+                            ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                30.0,
-                              ), // Sudut sangat tumpul (pil)
+                              borderRadius: BorderRadius.circular(30.0),
                             ),
                           ),
                           child: const Text(
                             'Sign Up',
                             style: TextStyle(
-                              color: primaryBlue, // Warna teks biru
+                              color: primaryBlue,
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -310,7 +298,7 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                     ),
                   ),
-                ), // Akhir Card Container
+                ),
               ],
             ),
           ),

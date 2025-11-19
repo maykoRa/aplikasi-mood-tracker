@@ -1,3 +1,5 @@
+// lib/home_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -19,16 +21,13 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
 
-  // --- PERUBAHAN DI SINI ---
-  // Halaman Stats dan Chatbot diganti dengan History dan Features
   static final List<Widget> _widgetOptions = <Widget>[
     const HomeScreenContent(),
-    const HistoryPage(), // <-- GANTI: Dulu StatisticsPage
+    const HistoryPage(),
     const Scaffold(body: Center(child: Text('Placeholder FAB'))),
-    const FeaturesPage(), // <-- GANTI: Dulu ChatbotPage
+    const FeaturesPage(),
     const ProfilePage(),
   ];
-  // --- AKHIR PERUBAHAN ---
 
   void _onItemTapped(int index) {
     if (index != 2) {
@@ -39,7 +38,6 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.newReflection != null) {
         _showReflectionDialog(widget.newReflection!);
@@ -51,7 +49,7 @@ class _HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('✨ Info Refleksi Diri'),
+        title: const Text('✨ Pesan Untukmu'),
         content: Text(reflection),
         actions: [
           TextButton(
@@ -66,10 +64,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Properti ini (dari perbaikan kita sebelumnya) SANGAT PENTING
-      // agar keyboard di ChatbotPage tidak merusak UI.
       resizeToAvoidBottomInset: false,
-
       body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
@@ -95,17 +90,13 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildBottomNavItem(Icons.home_outlined, 'Home', 0),
-                  // --- PERUBAHAN DI SINI ---
                   _buildBottomNavItem(Icons.history, 'History', 1),
-                  // --- AKHIR PERUBAHAN ---
                 ],
               ),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- PERUBAHAN DI SINI ---
                   _buildBottomNavItem(Icons.apps_outlined, 'Features', 3),
-                  // --- AKHIR PERUBAHAN ---
                   _buildBottomNavItem(Icons.person_outline, 'Profile', 4),
                 ],
               ),
@@ -121,25 +112,22 @@ class _HomePageState extends State<HomePage> {
     final Color color = isSelected ? const Color(0xFF3B82F6) : Colors.grey;
     IconData displayIcon = icon;
 
-    // --- PERUBAHAN DI SINI ---
-    // Mengganti ikon yang 'terpilih'
     if (isSelected) {
       switch (index) {
         case 0:
-          displayIcon = Icons.home; // Menjadi solid
+          displayIcon = Icons.home;
           break;
         case 1:
-          displayIcon = Icons.history; // Menjadi solid (sama)
+          displayIcon = Icons.history;
           break;
         case 3:
-          displayIcon = Icons.apps; // Menjadi solid
+          displayIcon = Icons.apps;
           break;
         case 4:
-          displayIcon = Icons.person; // Menjadi solid
+          displayIcon = Icons.person;
           break;
       }
     }
-    // --- AKHIR PERUBAHAN ---
 
     return MaterialButton(
       minWidth: 40,
@@ -156,7 +144,7 @@ class _HomePageState extends State<HomePage> {
 }
 
 // =========================================================================
-// HOMESCREENCONTENT (TIDAK BERUBAH, TETAP SAMA SEPERTI SEBELUMNYA)
+// HOMESCREENCONTENT (UPDATED UI REKOMENDASI)
 // =========================================================================
 
 class HomeScreenContent extends StatefulWidget {
@@ -229,7 +217,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       case 'Sangat Buruk':
         return '😠';
       default:
-        return 'Tidak Diketahui';
+        return '❓';
     }
   }
 
@@ -279,6 +267,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             ),
             const SizedBox(height: 30),
 
+            // === HEADER REKOMENDASI (Konsisten dengan tema header lain) ===
             const Text(
               'Rekomendasi hari ini',
               style: TextStyle(
@@ -288,46 +277,62 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               ),
             ),
             const SizedBox(height: 10),
+
+            // === BOX REKOMENDASI (DIPERBAIKI) ===
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F9FF),
-                borderRadius: BorderRadius.circular(15.0),
-                border: Border.all(color: const Color(0xFFE0F2FE), width: 1.0),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _todayRecommendation ??
-                          'Coba luangkan waktu istirahat sejenak dan nikmati hal kecil hari ini',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        color: Colors.black87,
-                        height: 1.4,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                // Background biru yang sangat lembut
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(16.0),
+                // Border biru muda
+                border: Border.all(color: const Color(0xFFDBEAFE), width: 1.0),
+                // Soft shadow agar tidak terlihat "mati"
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryBlue.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                  const SizedBox(width: 10),
                 ],
+              ),
+              child: Text(
+                _todayRecommendation ??
+                    'Coba luangkan waktu istirahat sejenak dan nikmati hal kecil hari ini',
+                style: const TextStyle(
+                  fontSize: 15,
+                  // Warna teks biru tua (Dark Blue) agar kontras tapi lembut (tidak hitam pekat)
+                  color: Color(0xFF1E40AF),
+                  height: 1.5,
+                  // Ketebalan medium (tidak bold)
+                  fontWeight: FontWeight.w500,
+                  // Style italic agar terkesan quotes/personal thought
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(height: 35),
 
-            // Entri Mood & Jurnal
-            const Text(
-              'Entri Mood & Jurnal',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: primaryBlue, // USAGE: primaryBlue
-              ),
+            // === ENTRI MOOD & JURNAL ===
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Ikon Bintang/Sparkles
+                const Icon(Icons.auto_awesome, color: primaryBlue, size: 20),
+                const SizedBox(width: 8), // Jarak antara ikon dan teks
+                const Text(
+                  'Catatan Harianmu', // Teks Personal
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: primaryBlue,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 15),
 
-            // StreamBuilder
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: _getTodayEntriesStream(),
               builder: (context, snapshot) {
