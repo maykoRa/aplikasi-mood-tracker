@@ -45,18 +45,92 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // === PERUBAHAN DI SINI: POP-UP LEBIH CANTIK ===
   void _showReflectionDialog(String reflection) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('✨ Pesan Untukmu'),
-        content: Text(reflection),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Oke'),
+      barrierDismissible: false, // User harus klik tombol
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon Header (Lingkaran Biru Soft)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF), // Biru sangat muda
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.auto_awesome, // Ikon sesuai tema
+                  color: Color(0xFF3B82F6),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Title
+              const Text(
+                'Pesan Untukmu',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF3B82F6),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Content Text
+              Text(
+                reflection,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Colors.black87,
+                  height: 1.5, // Spasi baris agar enak dibaca
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Action Button (Full Width)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3B82F6),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Mengerti',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -144,7 +218,7 @@ class _HomePageState extends State<HomePage> {
 }
 
 // =========================================================================
-// HOMESCREENCONTENT (UPDATED UI REKOMENDASI)
+// HOMESCREENCONTENT
 // =========================================================================
 
 class HomeScreenContent extends StatefulWidget {
@@ -267,7 +341,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             ),
             const SizedBox(height: 30),
 
-            // === HEADER REKOMENDASI (Konsisten dengan tema header lain) ===
+            // === HEADER REKOMENDASI ===
             const Text(
               'Rekomendasi hari ini',
               style: TextStyle(
@@ -278,16 +352,13 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             ),
             const SizedBox(height: 10),
 
-            // === BOX REKOMENDASI (DIPERBAIKI) ===
+            // === BOX REKOMENDASI ===
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
               decoration: BoxDecoration(
-                // Background biru yang sangat lembut
                 color: const Color(0xFFEFF6FF),
                 borderRadius: BorderRadius.circular(16.0),
-                // Border biru muda
                 border: Border.all(color: const Color(0xFFDBEAFE), width: 1.0),
-                // Soft shadow agar tidak terlihat "mati"
                 boxShadow: [
                   BoxShadow(
                     color: primaryBlue.withOpacity(0.05),
@@ -301,12 +372,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                     'Coba luangkan waktu istirahat sejenak dan nikmati hal kecil hari ini',
                 style: const TextStyle(
                   fontSize: 15,
-                  // Warna teks biru tua (Dark Blue) agar kontras tapi lembut (tidak hitam pekat)
                   color: Color(0xFF1E40AF),
                   height: 1.5,
-                  // Ketebalan medium (tidak bold)
                   fontWeight: FontWeight.w500,
-                  // Style italic agar terkesan quotes/personal thought
                   fontStyle: FontStyle.italic,
                 ),
                 textAlign: TextAlign.center,
@@ -314,15 +382,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             ),
             const SizedBox(height: 35),
 
-            // === ENTRI MOOD & JURNAL ===
+            // === JUDUL: CATATAN HARIANMU ===
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Ikon Bintang/Sparkles
                 const Icon(Icons.auto_awesome, color: primaryBlue, size: 20),
-                const SizedBox(width: 8), // Jarak antara ikon dan teks
+                const SizedBox(width: 8),
                 const Text(
-                  'Catatan Harianmu', // Teks Personal
+                  'Catatan Harianmu',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -354,7 +421,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 30.0),
                       child: Text(
-                        'Belum ada entri hari ini.\nYuk, tambahkan mood kamu!',
+                        'Belum ada catatan hari ini.\nYuk, isi mood kamu!',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.grey, fontSize: 16),
                       ),
