@@ -1,3 +1,5 @@
+// lib/chatbot_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -79,7 +81,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
   void _onSpeechResult(SpeechRecognitionResult result) {
     setState(() {
       _lastWords = result.recognizedWords;
-      _controller.text = _lastWords; // Update langsung di input
+      _controller.text = _lastWords;
     });
   }
 
@@ -104,7 +106,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
   }
 
   void _updateRefs() {
-    // Hanya update ref jika user dan chat ID ada
     if (user != null && _currentChatId != null) {
       _chatSessionRef = FirebaseFirestore.instance
           .collection('users')
@@ -152,7 +153,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
         setState(() {
           _currentChatId = newChatId;
         });
-        _updateRefs(); // Pastikan referensi diperbarui ke chat ID baru
+        _updateRefs();
       }
 
       _scrollToBottom();
@@ -167,11 +168,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
     }
   }
 
-  // --- FUNGSI BARU UNTUK HAPUS CHAT ---
   Future<void> _handleDeleteChat() async {
     if (_currentChatId == null || user == null) return;
 
-    // 1. Tampilkan dialog konfirmasi
     final bool? confirmDelete = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -194,13 +193,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
       },
     );
 
-    // 2. Jika dikonfirmasi, lakukan penghapusan
     if (confirmDelete == true) {
       setState(() => _isLoading = true);
       try {
-        // Hapus dokumen chat session
-        // Catatan: Ini tidak menghapus subkoleksi 'messages' secara otomatis
-        // tapi akan membuatnya tidak bisa diakses & memulai sesi baru.
         await FirebaseFirestore.instance
             .collection('users')
             .doc(user!.uid)
@@ -208,7 +203,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
             .doc(_currentChatId)
             .delete();
 
-        // Reset state di frontend
         setState(() {
           _currentChatId = null;
           _isLoading = false;
@@ -235,19 +229,18 @@ class _ChatbotPageState extends State<ChatbotPage> {
       }
     }
   }
-  // --- AKHIR FUNGSI BARU ---
 
   @override
   Widget build(BuildContext context) {
+    const Color primaryBlue = Color(0xFF3B82F6);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('MoodBuddy'),
-        backgroundColor: const Color(0xFF3B82F6),
+        backgroundColor: primaryBlue,
         foregroundColor: Colors.white,
         elevation: 2,
-        // --- PERUBAHAN: Tambahkan actions di AppBar ---
         actions: [
-          // Tampilkan tombol hanya jika ada chat aktif dan tidak sedang loading
           if (_currentChatId != null && !_isLoading)
             IconButton(
               icon: const Icon(Icons.delete_outline),
@@ -255,7 +248,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
               onPressed: _handleDeleteChat,
             ),
         ],
-        // --- AKHIR PERUBAHAN ---
       ),
       body: user == null
           ? const Center(child: Text('Silakan login terlebih dahulu'))
@@ -310,11 +302,8 @@ class _ChatbotPageState extends State<ChatbotPage> {
                                 child: CircularProgressIndicator(),
                               );
                             }
-                            // Jika snapshot tidak ada data ATAU
-                            // snapshot.data!.docs kosong, tampilkan pesan
                             if (!snapshot.hasData ||
                                 snapshot.data!.docs.isEmpty) {
-                              // Ini akan muncul sesaat setelah chat dihapus
                               return const Center(
                                 child: Text('Belum ada pesan.'),
                               );
@@ -345,7 +334,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
                                     ),
                                     decoration: BoxDecoration(
                                       color: isUser
-                                          ? Colors.blue
+                                          ? primaryBlue
                                           : Colors.grey[200],
                                       borderRadius: BorderRadius.circular(18),
                                     ),
@@ -371,13 +360,24 @@ class _ChatbotPageState extends State<ChatbotPage> {
                         ),
                 ),
 
-                // === INPUT FIELD DENGAN ICON MIC DI DALAM ===
+                // === INPUT FIELD AREA (DIPERBAIKI) ===
                 Container(
-                  padding: const EdgeInsets.all(12),
-                  color: Colors.grey[50],
+                  // 1. Memberikan padding bawah agar tidak mepet
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    // 2. Memberikan shadow agar terpisah dari chat
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 10,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
+                  ),
                   child: Row(
                     children: [
-                      // === KOTAK INPUT + MIC + SEND ===
                       Expanded(
                         child: TextField(
                           controller: _controller,
@@ -388,21 +388,45 @@ class _ChatbotPageState extends State<ChatbotPage> {
                                 : _isLoading
                                 ? 'Mengirim...'
                                 : 'Ceritakan perasaanmu...',
+                            hintStyle: TextStyle(color: Colors.grey.shade400),
+
+                            // 3. MEMPERJELAS BORDER
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(25),
-                              borderSide: BorderSide.none,
+                              // Border default (saat tidak fokus)
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                                width: 1.0,
+                              ),
                             ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(25),
+                              borderSide: BorderSide(
+                                color:
+                                    Colors.grey.shade300, // Warna border jelas
+                                width: 1.0,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(25),
+                              borderSide: const BorderSide(
+                                color: primaryBlue, // Warna border saat ngetik
+                                width: 1.5,
+                              ),
+                            ),
+
                             filled: true,
-                            fillColor: Colors.white,
+                            fillColor:
+                                Colors.grey[50], // Background dalam input
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 20,
                               vertical: 12,
                             ),
-                            // === ICON MIC DI KANAN DALAM ===
+
+                            // Icon di dalam input
                             suffixIcon: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                // === TOMBOL MIC ===
                                 IconButton(
                                   icon: AnimatedSwitcher(
                                     duration: const Duration(milliseconds: 200),
@@ -422,20 +446,19 @@ class _ChatbotPageState extends State<ChatbotPage> {
                                       ? _stopListening
                                       : _startListening,
                                 ),
-                                // === TOMBOL KIRIM ===
                                 IconButton(
                                   icon: _isLoading
                                       ? const SizedBox(
                                           width: 20,
                                           height: 20,
                                           child: CircularProgressIndicator(
-                                            color: Colors.blue,
+                                            color: primaryBlue,
                                             strokeWidth: 2,
                                           ),
                                         )
                                       : const Icon(
-                                          Icons.send,
-                                          color: Color(0xFF3B82F6),
+                                          Icons.send_rounded,
+                                          color: primaryBlue,
                                         ),
                                   onPressed: _isLoading ? null : _sendMessage,
                                 ),

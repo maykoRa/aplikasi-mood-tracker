@@ -1,7 +1,9 @@
+// lib/profile_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:permission_handler/permission_handler.dart'; // <-- IMPORT BARU
+import 'package:permission_handler/permission_handler.dart';
 import 'auth_wrapper.dart';
 import 'edit_profile_page.dart';
 import 'notification_service.dart';
@@ -30,7 +32,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadSettings();
   }
 
-  // --- Fungsi Memuat Pengaturan (Tidak Berubah) ---
+  // --- Fungsi Memuat Pengaturan ---
   Future<void> _loadSettings() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -48,7 +50,7 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  // --- Fungsi Menyimpan Pengaturan (Tidak Berubah) ---
+  // --- Fungsi Menyimpan Pengaturan ---
   Future<void> _saveSettings(bool enabled, TimeOfDay? time) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kNotificationEnabledKey, enabled);
@@ -61,9 +63,302 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // --- Fungsi Logout (Tidak Berubah) ---
+  // --- FITUR BARU: GANTI PASSWORD (PERMANTAP UI) ---
+  Future<void> _showChangePasswordDialog() async {
+    final TextEditingController oldPassController = TextEditingController();
+    final TextEditingController newPassController = TextEditingController();
+    final TextEditingController confirmPassController = TextEditingController();
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    // Variabel state lokal
+    bool obscureOld = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool isLoading = false;
+
+    // Warna Tema
+    const Color primaryBlue = Color(0xFF3B82F6);
+    const Color lightBlueBg = Color(0xFFEFF6FF);
+
+    // Helper untuk Input Decoration yang Rapi
+    InputDecoration _buildInputDecoration(
+      String label,
+      IconData icon,
+      bool isObscure,
+      VoidCallback onToggle,
+    ) {
+      return InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: Colors.grey[600], fontSize: 14),
+        filled: true,
+        fillColor: Colors.grey[50], // Background input sangat muda
+        prefixIcon: Icon(icon, color: primaryBlue.withOpacity(0.7), size: 22),
+        suffixIcon: IconButton(
+          icon: Icon(
+            isObscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+            color: Colors.grey[400],
+            size: 20,
+          ),
+          onPressed: onToggle,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none, // Hilangkan border default agar clean
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[200]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: primaryBlue, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+      );
+    }
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 1. Header Icon
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: const BoxDecoration(
+                            color: lightBlueBg,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.lock_reset_rounded,
+                            color: primaryBlue,
+                            size: 32,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // 2. Title
+                        const Text(
+                          'Ganti Password',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Masukkan password lama dan baru Anda.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // 3. Form Inputs
+                        TextFormField(
+                          controller: oldPassController,
+                          obscureText: obscureOld,
+                          decoration: _buildInputDecoration(
+                            'Password Lama',
+                            Icons.lock_outline_rounded,
+                            obscureOld,
+                            () =>
+                                setStateDialog(() => obscureOld = !obscureOld),
+                          ),
+                          validator: (val) =>
+                              val!.isEmpty ? 'Password lama wajib diisi' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: newPassController,
+                          obscureText: obscureNew,
+                          decoration: _buildInputDecoration(
+                            'Password Baru',
+                            Icons.vpn_key_outlined,
+                            obscureNew,
+                            () =>
+                                setStateDialog(() => obscureNew = !obscureNew),
+                          ),
+                          validator: (val) =>
+                              val!.length < 6 ? 'Minimal 6 karakter' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: confirmPassController,
+                          obscureText: obscureConfirm,
+                          decoration: _buildInputDecoration(
+                            'Ulangi Password Baru',
+                            Icons.check_circle_outline_rounded,
+                            obscureConfirm,
+                            () => setStateDialog(
+                              () => obscureConfirm = !obscureConfirm,
+                            ),
+                          ),
+                          validator: (val) {
+                            if (val != newPassController.text) {
+                              return 'Password tidak sama';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 30),
+
+                        // 4. Action Buttons
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: isLoading
+                                ? null
+                                : () async {
+                                    if (formKey.currentState!.validate()) {
+                                      setStateDialog(() => isLoading = true);
+
+                                      try {
+                                        User? user =
+                                            FirebaseAuth.instance.currentUser;
+                                        String email = user?.email ?? '';
+
+                                        // Re-autentikasi
+                                        AuthCredential credential =
+                                            EmailAuthProvider.credential(
+                                              email: email,
+                                              password: oldPassController.text,
+                                            );
+
+                                        await user
+                                            ?.reauthenticateWithCredential(
+                                              credential,
+                                            );
+
+                                        // Update Password
+                                        await user?.updatePassword(
+                                          newPassController.text,
+                                        );
+
+                                        if (mounted) {
+                                          Navigator.pop(context);
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Password berhasil diubah!',
+                                              ),
+                                              backgroundColor: Colors.green,
+                                            ),
+                                          );
+                                        }
+                                      } on FirebaseAuthException catch (e) {
+                                        String errorMsg =
+                                            'Gagal mengubah password.';
+                                        if (e.code == 'wrong-password') {
+                                          errorMsg = 'Password lama salah.';
+                                        } else if (e.code == 'weak-password') {
+                                          errorMsg =
+                                              'Password baru terlalu lemah.';
+                                        }
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(errorMsg),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      } finally {
+                                        if (mounted &&
+                                            Navigator.canPop(context)) {
+                                          setStateDialog(
+                                            () => isLoading = false,
+                                          );
+                                        }
+                                      }
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryBlue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Simpan Password',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: isLoading
+                              ? null
+                              : () => Navigator.pop(context),
+                          child: Text(
+                            'Batal',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+  // --- AKHIR FITUR GANTI PASSWORD ---
+
+  // --- Fungsi Logout ---
   Future<void> _handleLogout() async {
-    // ... (Kode Logout Anda)
     final bool? confirmLogout = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -110,9 +405,8 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // --- Fungsi Hapus Akun (Tidak Berubah) ---
+  // --- Fungsi Hapus Akun ---
   Future<void> _handleDeleteAccount() async {
-    // ... (Kode Hapus Akun Anda)
     final User? user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -206,28 +500,21 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // --- FUNGSI NOTIFIKASI YANG DIPERBARUI ---
+  // --- Fungsi Notifikasi ---
   Future<void> _handleDailyNotificationChange(bool newValue) async {
     final notificationService = NotificationService();
 
     if (newValue == true) {
-      // --- PENGGUNA MENCOBA MENGAKTIFKAN ---
-
-      // 1. Cek Izin Alarm
       final PermissionStatus status =
           await Permission.scheduleExactAlarm.status;
 
       if (!status.isGranted) {
-        // 2. Jika izin belum ada, tampilkan dialog penjelasan
         if (mounted) {
           await _showAlarmPermissionDialog();
         }
-        // Berhenti di sini. Toggle akan otomatis kembali ke 'off'
-        // karena kita tidak memanggil setState(true)
         return;
       }
 
-      // 3. Jika izin SUDAH ADA, lanjutkan ke TimePicker
       final TimeOfDay? pickedTime = await showTimePicker(
         context: context,
         initialTime:
@@ -238,7 +525,6 @@ class _ProfilePageState extends State<ProfilePage> {
       );
 
       if (pickedTime != null) {
-        // --- Pengguna memilih waktu (tidak cancel) ---
         setState(() {
           _dailyNotificationEnabled = true;
           _selectedNotificationTime = pickedTime;
@@ -257,11 +543,8 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           );
         }
-      } else {
-        // --- Pengguna menekan 'Batal' di time picker ---
       }
     } else {
-      // --- PENGGUNA MENONAKTIFKAN toggle ---
       setState(() {
         _dailyNotificationEnabled = false;
         _selectedNotificationTime = null;
@@ -280,9 +563,8 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
   }
-  // --- AKHIR FUNGSI NOTIFIKASI ---
 
-  // --- FUNGSI BARU: Dialog Izin Alarm ---
+  // --- Dialog Izin Alarm ---
   Future<void> _showAlarmPermissionDialog() async {
     await showDialog<void>(
       context: context,
@@ -302,7 +584,7 @@ class _ProfilePageState extends State<ProfilePage> {
             TextButton(
               child: const Text('Buka Pengaturan'),
               onPressed: () {
-                openAppSettings(); // <-- Buka pengaturan aplikasi
+                openAppSettings();
                 Navigator.of(context).pop();
               },
             ),
@@ -311,7 +593,6 @@ class _ProfilePageState extends State<ProfilePage> {
       },
     );
   }
-  // --- AKHIR FUNGSI BARU ---
 
   @override
   Widget build(BuildContext context) {
@@ -439,6 +720,15 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 10),
             _buildSettingsCard(
               children: [
+                // --- MENU GANTI PASSWORD ---
+                _buildProfileOptionRow(
+                  icon: Icons.lock_outline, // Menggunakan ikon gembok biasa
+                  text: 'Change Password',
+                  onTap:
+                      _showChangePasswordDialog, // Panggil dialog ganti password
+                ),
+                _buildDivider(),
+                // ---------------------------
                 _buildProfileOptionRow(
                   icon: Icons.delete_outline,
                   text: 'Delete Account',
@@ -464,7 +754,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- Helper Widgets (Tidak berubah) ---
+  // --- Helper Widgets ---
 
   Widget _buildSectionTitle(String title) {
     return Padding(
