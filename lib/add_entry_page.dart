@@ -1,35 +1,30 @@
 // lib/add_entry_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
 import 'home_page.dart';
 
 class AddEntryPage extends StatefulWidget {
   const AddEntryPage({super.key});
+
   @override
   State<AddEntryPage> createState() => _AddEntryPageState();
 }
 
 class _AddEntryPageState extends State<AddEntryPage> {
   final TextEditingController _journalController = TextEditingController();
-  String? _selectedMood;
+
   bool _isLoading = false;
-  final DateTime _selectedDateTime = DateTime.now(); // Otomatis sekarang
+  final DateTime _selectedDateTime = DateTime.now();
+
+  // Speech to Text
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   String _localeId = 'id_ID';
-  String _textBeforeListening = '';
-
-  final List<Map<String, String>> _moods = [
-    {'emoji': '😄', 'text': 'Sangat Baik'},
-    {'emoji': '😊', 'text': 'Baik'},
-    {'emoji': '😐', 'text': 'Biasa Saja'},
-    {'emoji': '😟', 'text': 'Buruk'},
-    {'emoji': '😠', 'text': 'Sangat Buruk'},
-  ];
 
   @override
   void initState() {
@@ -44,90 +39,56 @@ class _AddEntryPageState extends State<AddEntryPage> {
     super.dispose();
   }
 
+  // ===================== SPEECH TO TEXT =====================
   void _initSpeech() async {
-    try {
-      _speechEnabled = await _speechToText.initialize(
-        onError: (errorNotification) =>
-            print('STT onError: $errorNotification'),
-        onStatus: (status) => print('STT onStatus: $status'),
+    _speechEnabled = await _speechToText.initialize();
+    if (_speechEnabled) {
+      final locales = await _speechToText.locales();
+      final indo = locales.firstWhere(
+        (l) => l.localeId.contains('id'),
+        orElse: () => locales.first,
       );
-      if (_speechEnabled) {
-        var locales = await _speechToText.locales();
-        var indonesianLocale = locales.firstWhere(
-          (locale) => locale.localeId == 'id_ID',
-          orElse: () => locales.first,
-        );
-        _localeId = indonesianLocale.localeId;
-        print("Using locale: $_localeId");
-      } else {
-        print("Speech recognition not available");
-      }
-    } catch (e) {
-      print("Error initializing speech recognition: $e");
-      _speechEnabled = false;
+      _localeId = indo.localeId;
     }
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   void _startListening() async {
-    if (!_speechEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fitur suara tidak tersedia saat ini.')),
-      );
-      return;
-    }
-    _textBeforeListening = _journalController.text;
+    if (!_speechEnabled || _isLoading) return;
     await _speechToText.listen(
-      onResult: _onSpeechResult,
+      onResult: (result) {
+        if (result.finalResult) {
+          _journalController.text = result.recognizedWords;
+          _journalController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _journalController.text.length),
+          );
+        }
+      },
       localeId: _localeId,
       listenFor: const Duration(minutes: 1),
-      listenMode: ListenMode.confirmation,
     );
-    if (mounted) setState(() {});
+    setState(() {});
   }
 
   void _stopListening() async {
     await _speechToText.stop();
-    if (mounted) setState(() {});
+    setState(() {});
   }
 
-  void _onSpeechResult(SpeechRecognitionResult result) {
-    setState(() {
-      final separator =
-          _textBeforeListening.isEmpty || _textBeforeListening.endsWith(' ')
-          ? ''
-          : ' ';
-      String recognized = result.recognizedWords;
-      _journalController.text = _textBeforeListening + separator + recognized;
-      _journalController.selection = TextSelection.fromPosition(
-        TextPosition(offset: _journalController.text.length),
-      );
-      if (result.finalResult) {
-        _textBeforeListening = _journalController.text;
-      }
-    });
-  }
-
+  // ===================== SIMPAN ENTRY + TUNGGU REFLEKSI =====================
   Future<void> _saveEntry() async {
-    // Validasi
-    if (_selectedMood == null) {
+    final journal = _journalController.text.trim();
+    if (journal.isEmpty || journal.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Silakan pilih mood Anda hari ini'),
-          backgroundColor: Colors.orange,
-        ),
+        const SnackBar(content: Text('Ceritakan lebih banyak yuk')),
       );
       return;
     }
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('User tidak ditemukan, silakan login ulang'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('User tidak ditemukan')),
       );
       return;
     }
@@ -135,263 +96,173 @@ class _AddEntryPageState extends State<AddEntryPage> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Simpan entri
-      final newEntryRef = await FirebaseFirestore.instance
-          .collection('mood_entries')
-          .add({
-            'userId': user.uid,
-            'mood': _selectedMood!,
-            'journal': _journalController.text.trim(),
-            'timestamp': Timestamp.fromDate(_selectedDateTime),
-            'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
-            'reflection': null,
-          });
+      // 1. Simpan entri dengan placeholder
+      final docRef = await FirebaseFirestore.instance.collection('mood_entries').add({
+        'userId': user.uid,
+        'mood': 'Menunggu AI...',
+        'journal': journal,
+        'timestamp': Timestamp.fromDate(_selectedDateTime),
+        'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
+        'reflection': null,
+      });
 
-      // 2. TUNGGU Refleksi AI (timeout 30 detik)
-      String aiReflection =
-          'Maaf, refleksi AI memakan waktu terlalu lama (>30 detik). Silakan cek detail entri Anda nanti.';
-      const timeoutDuration = Duration(seconds: 30);
+      // 2. Tunggu refleksi AI (maks 30 detik)
+      String reflection = "Entri berhasil disimpan!\nRefleksi AI akan muncul sebentar lagi.";
 
       try {
-        final reflectionSnapshot = await Future.any([
-          newEntryRef.snapshots().firstWhere((doc) {
-            final data = doc.data();
-            return data != null &&
-                data.containsKey('reflection') &&
-                data['reflection'] != null;
-          }),
-          Future.delayed(timeoutDuration).then((_) => null),
-        ]);
+        final snapshot = await docRef.snapshots().skipWhile((doc) {
+          final data = doc.data();
+          final refl = data?['reflection'] as String?;
+          return refl == null || refl.trim().isEmpty;
+        }).first.timeout(const Duration(seconds: 30));
 
-        if (reflectionSnapshot != null) {
-          aiReflection = reflectionSnapshot.data()!['reflection'] as String;
-          if (aiReflection.startsWith('Error:') ||
-              aiReflection.startsWith('Maaf,')) {
-            aiReflection =
-                'Entri berhasil disimpan, namun: \n\n**$aiReflection**';
-          }
-        }
+        reflection = snapshot.get('reflection') as String;
+      } on TimeoutException catch (_) {
+        // Timeout → tetap lanjut
       } catch (e) {
-        print('Error waiting for reflection: $e');
-        aiReflection =
-            'Entri berhasil disimpan. Gagal memuat refleksi secara langsung.';
+        debugPrint('Error waiting for reflection: $e');
       }
 
-      // 3. Navigasi ke HomePage
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (context) => HomePage(newReflection: aiReflection),
-          ),
-          (route) => false,
-        );
-      }
+      // 3. Navigasi ke Home
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => HomePage(newReflection: reflection)),
+        (route) => false,
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal menyimpan: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menyimpan: $e')),
+      );
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // ===================== UI =====================
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF3B82F6);
-    final String displayDateTime = DateFormat(
-      'EEEE, d MMM yyyy HH:mm',
-      'id_ID',
-    ).format(_selectedDateTime);
-    const Color lightOutlineColor = Color(0xFFE0E0E0);
-    const Color hintTextColor = Colors.grey;
+    final String displayDateTime = DateFormat('EEEE, d MMM yyyy HH:mm', 'id_ID').format(_selectedDateTime);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Entri Baru'),
         leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: _isLoading ? Colors.grey : Colors.black,
-          ),
+          icon: Icon(Icons.arrow_back, color: _isLoading ? Colors.grey : Colors.black),
           onPressed: _isLoading ? null : () => Navigator.pop(context),
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Tanggal & Waktu
               Row(
-                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   const Icon(Icons.access_time, color: Colors.grey, size: 18),
                   const SizedBox(width: 6),
                   Text(
                     displayDateTime,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: const TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
-              const SizedBox(height: 15),
+              const SizedBox(height: 25),
 
               const Text(
                 'Bagaimana perasaanmu hari ini?',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 25),
 
-              // Pilihan Mood
-              Wrap(
-                alignment: WrapAlignment.spaceAround,
-                spacing: 10.0,
-                runSpacing: 10.0,
-                children: _moods.map((mood) {
-                  final bool isSelected = _selectedMood == mood['text'];
-                  return GestureDetector(
-                    onTap: _isLoading
-                        ? null
-                        : () => setState(() => _selectedMood = mood['text']),
-                    child: Container(
-                      // --- PERUBAHAN 1: Padding Emoji ---
-                      // Mengubah dari 10 menjadi 8
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? primaryBlue.withOpacity(0.1)
-                            : Colors.transparent,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected
-                              ? primaryBlue
-                              : Colors.grey.shade300,
-                          width: 1.5,
-                        ),
+              // Info: AI akan tentukan mood otomatis
+              Center(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    const Text(
+                      "AI akan otomatis menentukan moodmu\nsetelah kamu simpan",
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey,
                       ),
-                      child: Text(
-                        mood['emoji']!,
-                        // --- PERUBAHAN 2: Ukuran Emoji ---
-                        // Mengubah dari 32 menjadi 28
-                        style: const TextStyle(fontSize: 28),
-                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  );
-                }).toList(),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Berdasarkan isi jurnalmu",
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 40),
 
               const Text(
                 'Ceritakan sedikit tentang harimu',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
-              // Jurnal + Mic
+              // Text field + mic
               TextField(
                 controller: _journalController,
                 enabled: !_isLoading,
-                maxLines: 5,
+                maxLines: 7,
                 decoration: InputDecoration(
-                  hintText: 'Tulis ceritamu di sini...',
-                  hintStyle: const TextStyle(color: hintTextColor),
-
-                  // --- PERUBAHAN 3: helperText DIHAPUS ---
-                  // helperText: _speechToText.isListening ... (dihapus)
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 12.0,
-                    horizontal: 20.0,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15.0),
-                    borderSide: const BorderSide(
-                      color: lightOutlineColor,
-                      width: 1.0,
-                    ),
-                  ),
+                  hintText: 'Tulis atau bicara di sini...',
+                  hintStyle: const TextStyle(color: Colors.grey),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15.0),
-                    borderSide: const BorderSide(
-                      color: lightOutlineColor,
-                      width: 1.0,
-                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15.0),
-                    borderSide: const BorderSide(
-                      color: primaryBlue,
-                      width: 1.5,
-                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: primaryBlue, width: 2),
                   ),
                   suffixIcon: IconButton(
-                    // --- PERUBAHAN 4: Logika Ikon Dikembalikan ---
                     icon: Icon(
                       _speechToText.isListening ? Icons.mic : Icons.mic_none,
+                      color: _speechToText.isListening ? Colors.red : primaryBlue,
                     ),
-                    color: _speechToText.isListening ? Colors.red : primaryBlue,
-                    // --- Akhir Perubahan 4 ---
-                    tooltip: 'Tekan untuk bicara',
                     onPressed: _speechEnabled && !_isLoading
-                        ? (_speechToText.isListening
-                              ? _stopListening
-                              : _startListening)
+                        ? (_speechToText.isListening ? _stopListening : _startListening)
                         : null,
                   ),
                 ),
               ),
 
-              // --- PERUBAHAN 5: Indikator "Pill" yang Lebih Jelas ---
-              // Mengganti Padding lama dengan Container "Chip"
+              // Indikator mic aktif
               if (_speechToText.isListening)
                 Container(
-                  // Mengatur agar rata tengah
-                  alignment: Alignment.center,
-                  margin: const EdgeInsets.only(top: 8.0),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
+                  margin: const EdgeInsets.only(top: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.red[50], // Latar belakang merah muda
-                    borderRadius: BorderRadius.circular(20), // Rounded
-                    border: Border.all(color: Colors.red[100]!), // Border tipis
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: Colors.red[200]!),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min, // Agar container tidak full
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.mic, // Ikon mic di dalam chip
-                        color: Colors.red,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Mic aktif – sedang mendengarkan...',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Icon(Icons.mic, color: Colors.red, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Sedang mendengarkan...',
+                        style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
                 ),
-              // --- Akhir Perubahan 5 ---
 
-              // Menyesuaikan space
-              SizedBox(height: _speechToText.isListening ? 10 : 30),
+              const SizedBox(height: 40),
 
               // Tombol Simpan
               SizedBox(
@@ -401,26 +272,20 @@ class _AddEntryPageState extends State<AddEntryPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30.0),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Poppins',
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    elevation: 3,
                   ),
                   child: _isLoading
                       ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.0,
-                          ),
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                         )
-                      : const Text('Simpan Entri'),
+                      : const Text(
+                          'Simpan Entri',
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                        ),
                 ),
               ),
             ],

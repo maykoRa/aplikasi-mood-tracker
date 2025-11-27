@@ -4,46 +4,229 @@ import {
   onDocumentUpdated,
   onDocumentDeleted,
 } from "firebase-functions/v2/firestore";
-import {onCall, HttpsError} from "firebase-functions/v2/https";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as functionsV1 from "firebase-functions/v1";
 import * as admin from "firebase-admin";
-import {GoogleGenerativeAI} from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as logger from "firebase-functions/logger";
 
 admin.initializeApp();
 const db = admin.firestore();
 
-/**
- * Menghapus koleksi Firestore beserta semua dokumen di dalamnya secara rekursif
- * menggunakan batch.
- * @param {admin.firestore.CollectionReference} collectionRef Referensi ke
- * koleksi yang ingin dihapus.
- * @param {number} batchSize Jumlah dokumen yang akan dihapus per batch.
- * @return {Promise<void>} Promise yang resolve ketika semua dokumen
- * telah dihapus.
- */
-async function deleteCollection(
-  collectionRef: admin.firestore.CollectionReference,
-  batchSize = 500
-) {
-  const snapshot = await collectionRef.limit(batchSize).get();
-  if (snapshot.empty) return;
+/* ======================= PERSONA SYSTEM ====================== */
 
-  const batch = db.batch();
-  snapshot.docs.forEach((doc) => batch.delete(doc.ref));
-  await batch.commit();
+type PersonaType = "formal" | "tough" | "friendly" | "coach" | "motherly" | "bestie";
 
-  // Rekursif jika masih ada
-  await deleteCollection(collectionRef, batchSize);
+const PERSONA_PROMPTS_REFLECTION: Record<
+  PersonaType,
+  (mood: string, journal: string) => string
+> = {
+  formal: (mood, journal) => `
+Kamu adalah konsultan psikologi profesional, sopan, dan terstruktur.
+Mood: "${mood}", Jurnal: "${journal}".
+Berikan 1 refleksi singkat (maks 2 kalimat) yang objektif, menggunakan bahasa baku, dan memberikan insight psikologis ringan.
+Gunakan kata "Anda", hindari bahasa gaul dan emoji.
+`,
+
+  tough: (mood, journal) => `
+Kamu adalah mentor keras yang tegas dan disiplin (tough love). Tidak ada alasan diterima.
+Mood: "${mood}", Jurnal: "${journal}".
+Berikan 1 refleksi keras (maks 2 kalimat) yang memaksa user bangun dan berubah SEKARANG. Gunakan bahasa tegas, langsung, tanpa kasih sayang berlebih.
+`,
+
+  friendly: (mood, journal) => `
+Kamu adalah sahabat dekat yang suportif, hangat, dan selalu ada.
+Mood: "${mood}", Jurnal: "${journal}".
+Berikan 1 refleksi singkat (maks 2 kalimat) penuh dukungan, empati, dan semangat positif. Boleh pakai "sayang", "gapapa kok", "aku ada buat kamu".
+`,
+
+  coach: (mood, journal) => `
+Kamu adalah life coach energik dan penuh motivasi.
+Mood: "${mood}", Jurnal: "${journal}".
+Berikan 1 refleksi singkat (maks 2 kalimat) yang membakar semangat, penuh energi, dan mendorong user untuk action besar. Gunakan kata-kata seperti "Come on!", "Kamu bisa!", "Gaspol!".
+`,
+
+  motherly: (mood, journal) => `
+Kamu adalah sosok ibu yang penuh kasih, mengayomi, dan bijaksana.
+Mood: "${mood}", Jurnal: "${journal}".
+Berikan 1 refleksi hangat (maks 2 kalimat) yang menenangkan, penuh kasih sayang, dan bijak. Boleh pakai "nak", "sayang", "mama ada di sini", "peluk mama".
+`,
+
+  bestie: (mood, journal) => `
+Kamu adalah bestie gaul yang santai, lucu, dan selalu relate.
+Mood: "${mood}", Jurnal: "${journal}".
+Berikan 1 refleksi singkat (maks 2 kalimat) dengan bahasa anak muda kekinian, santai banget, pake "gila", "wkwk", "duh", "yakin lu?", "gas lah".
+`,
+};
+
+const PERSONA_PROMPTS_SUMMARY: Record<PersonaType, (journal: string) => string> = {
+  formal: (journal) => `
+Kamu konsultan profesional. Analisis 7 hari terakhir: ${journal}
+Berikan 3 rekomendasi objektif dan terstruktur untuk meningkatkan kesejahteraan. Maksimal 3 kalimat, bahasa baku, tanpa emosi berlebih.
+`,
+
+  tough: (journal) => `
+Kamu mentor tegas. Analisis 7 hari terakhir: ${journal}
+Berikan 3 perintah keras yang harus dilakukan user mulai hari ini. Maksimal 3 kalimat, tanpa basa-basi, tanpa kata penyemangat.
+`,
+
+  friendly: (journal) => `
+Kamu sahabat dekat yang suportif. Analisis 7 hari terakhir: ${journal}
+Berikan 3 saran hangat dan penuh dukungan untuk hari ini. Maksimal 3 kalimat, boleh pakai "yuk", "kamu pasti bisa", "aku bangga sama kamu".
+`,
+
+  coach: (journal) => `
+Kamu life coach energik. Analisis 7 hari terakhir: ${journal}
+Berikan 3 rekomendasi penuh semangat untuk level up hari ini! Maksimal 3 kalimat, gunakan bahasa motivasi tinggi: "Gaspol!", "Ini waktunya!", "You got this!".
+`,
+
+  motherly: (journal) => `
+Kamu ibu yang bijak dan penuh kasih. Analisis 7 hari terakhir: ${journal}
+Berikan 3 nasihat lembut tapi tegas untuk anak mama. Maksimal 3 kalimat, gunakan "nak", "sayang", "mama tahu kamu bisa", "istirahat dulu ya".
+`,
+
+  bestie: (journal) => `
+Kamu bestie gaul. Analisis 7 hari terakhir: ${journal}
+Kasih 3 saran santai tapi ngena banget buat hari ini. Maksimal 3 kalimat, pake bahasa anak Jaksel: "gila", "wkwkwk", "serius lu?", "udah move on belum?", "gas lah bro!".
+`,
+};
+
+/* Helper: ambil persona user (default = friendly) */
+async function getUserPersona(userId: string): Promise<PersonaType> {
+  try {
+    const doc = await db.collection("users").doc(userId).get();
+    const p = doc.data()?.aiPersona as PersonaType;
+    if (p && ["formal","tough","friendly","coach","motherly","bestie"].includes(p)) {
+      return p;
+    }
+  } catch (e) {
+    logger.warn("Gagal ambil persona, pakai default friendly", e);
+  }
+  return "friendly"; // default
 }
 
-// ==================== REFLECTION PER ENTRY (EXISTING) ====================
-const SYSTEM_PROMPT_REFLECTION = (mood: string, journal: string) => `
-Sebagai AI refleksi, JANGAN PERNAH memperkenalkan diri. Langsung berikan inti refleksi.
-Analisis mood: "${mood}" dan jurnal: "${journal}".
-Berikan 1 REFLEKSI DIRI singkat (maks 2 kalimat) yang bersifat positif, membangun, dan sesuai dengan perasaan dan isi jurnal user.
-Gunakan bahasa Indonesia santai. JANGAN gunakan emoji.
+/* ======================= MOOD DETECTION ====================== */
+
+const SYSTEM_PROMPT_MOOD_ACCURATE = (journal: string) => `
+Analisis jurnal berikut dan tentukan mood user SECARA AKURAT.
+
+Jurnal:
+"${journal}"
+
+Pilihan mood (PASTIKAN HANYA SALAH SATU DARI INI):
+- Sangat Baik
+- Baik
+- Biasa Saja
+- Buruk
+- Sangat Buruk
+
+Balas HANYA dengan salah satu teks di atas. Tanpa penjelasan, tanpa emoji.
 `;
+
+export const detectAndSetMood = onDocumentCreated(
+  {
+    document: "mood_entries/{entryId}",
+    region: "asia-southeast2",
+    secrets: ["GEMINI_API_KEY"],
+    timeoutSeconds: 60,
+    memory: "512MiB",
+    cpu: 1,
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+    const data = snapshot.data();
+    if (!data?.journal || (data.mood !== "Menunggu AI..." && data.mood !== null))
+      return;
+
+    const journal = data.journal as string;
+    if (journal.trim().length < 10) {
+      await snapshot.ref.update({ mood: "Biasa Saja" });
+      return;
+    }
+
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) {
+      await snapshot.ref.update({ mood: "Biasa Saja" });
+      return;
+    }
+
+    try {
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const result = await model.generateContent(
+        SYSTEM_PROMPT_MOOD_ACCURATE(journal)
+      );
+      let detected = result.response.text().trim();
+
+      const valid = ["Sangat Baik", "Baik", "Biasa Saja", "Buruk", "Sangat Buruk"];
+      const finalMood = valid.find((m) => detected.includes(m)) || "Biasa Saja";
+
+      await snapshot.ref.update({
+        mood: finalMood,
+        moodDetectedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (e: any) {
+      logger.error("Mood detection error:", e);
+      await snapshot.ref.update({ mood: "Biasa Saja" });
+    }
+  }
+);
+
+export const detectAndSetMoodOnUpdate = onDocumentUpdated(
+  {
+    document: "mood_entries/{entryId}",
+    region: "asia-southeast2",
+    secrets: ["GEMINI_API_KEY"],
+    timeoutSeconds: 60,
+    memory: "512MiB",
+    cpu: 1,
+  },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    const snapshot = event.data?.after;
+    if (!before || !after || !snapshot) return;
+
+    const moodReset = after.mood === "Menunggu AI..." && before.mood !== "Menunggu AI...";
+    const journalChanged = before.journal !== after.journal;
+    if (!moodReset && !journalChanged) return;
+
+    if (!after.journal || after.journal.trim().length < 10) {
+      await snapshot.ref.update({ mood: "Biasa Saja" });
+      return;
+    }
+
+    const journal = after.journal as string;
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) {
+      await snapshot.ref.update({ mood: "Biasa Saja" });
+      return;
+    }
+
+    try {
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const result = await model.generateContent(
+        SYSTEM_PROMPT_MOOD_ACCURATE(journal)
+      );
+      let detected = result.response.text().trim();
+
+      const valid = ["Sangat Baik", "Baik", "Biasa Saja", "Buruk", "Sangat Buruk"];
+      const finalMood = valid.find((m) => detected.includes(m)) || "Biasa Saja";
+
+      await snapshot.ref.update({
+        mood: finalMood,
+        moodDetectedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (e: any) {
+      logger.error("Mood update detection error:", e);
+      await snapshot.ref.update({ mood: "Biasa Saja" });
+    }
+  }
+);
+
+/* ==================== REFLECTION PER ENTRY =================== */
 
 export const generateReflection = onDocumentCreated(
   {
@@ -58,36 +241,32 @@ export const generateReflection = onDocumentCreated(
     const snapshot = event.data;
     if (!snapshot) return;
     const data = snapshot.data();
-    if (!data?.mood || !data?.journal || !data?.userId || data.reflection) {
-      return;
-    }
+    if (!data?.mood || !data?.journal || !data?.userId || data.reflection) return;
+
+    const persona = await getUserPersona(data.userId);
+    const prompt = PERSONA_PROMPTS_REFLECTION[persona](data.mood, data.journal);
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await snapshot.ref.update({reflection: "Error: AI Key hilang."});
+      await snapshot.ref.update({ reflection: "Error: AI Key hilang." });
       return;
     }
 
     let text = null;
-    let errorMsg = "";
-    let retryCount = 0;
+    let retry = 0;
     const maxRetries = 2;
 
-    while (!text && retryCount < maxRetries) {
+    while (!text && retry < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
-        // Memanggil method text()
-        const result = await model.generateContent(
-          SYSTEM_PROMPT_REFLECTION(data.mood, data.journal)
-        );
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const result = await model.generateContent(prompt);
         text = result.response.text().trim();
         break;
-      } catch (error: any) {
-        errorMsg = error.message || "Unknown error";
-        if (errorMsg.includes("429")) {
+      } catch (e: any) {
+        if (e.message?.includes("429")) {
           await new Promise((r) => setTimeout(r, 30000));
-          retryCount++;
+          retry++;
         } else break;
       }
     }
@@ -100,13 +279,13 @@ export const generateReflection = onDocumentCreated(
     } else {
       await snapshot.ref.update({
         reflection: "Maaf, AI sedang sibuk. Coba lagi nanti.",
-        errorLog: errorMsg.substring(0, 500),
       });
     }
   }
 );
 
-// ==================== REGENERATE ON UPDATE (EXISTING) ====================
+/* =============== REGENERATE REFLECTION ON UPDATE ============= */
+
 export const regenerateReflectionOnUpdate = onDocumentUpdated(
   {
     document: "mood_entries/{entryId}",
@@ -119,75 +298,55 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
   async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
-    const afterSnapshot = event.data?.after;
-    if (!before || !after || !afterSnapshot) return;
+    const snapshot = event.data?.after;
+    if (!before || !after || !snapshot) return;
 
     const journalChanged = before.journal !== after.journal;
     const reflectionCleared = after.reflection === null;
     if (!journalChanged || !reflectionCleared) return;
 
-    await afterSnapshot.ref.update({
-      dailySummaryTriggered: admin.firestore.FieldValue.delete(),
-    });
+    const persona = await getUserPersona(after.userId);
+    const prompt = PERSONA_PROMPTS_REFLECTION[persona](after.mood, after.journal);
 
-    const data = after;
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await afterSnapshot.ref.update({
-        reflection: "Error: AI Key hilang saat update.",
-      });
+      await snapshot.ref.update({ reflection: "Error: AI Key hilang." });
       return;
     }
 
     let text = null;
-    let errorMsg = "";
-    let retryCount = 0;
+    let retry = 0;
     const maxRetries = 2;
 
-    while (!text && retryCount < maxRetries) {
+    while (!text && retry < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
-        // Memanggil method text()
-        const result = await model.generateContent(
-          SYSTEM_PROMPT_REFLECTION(data.mood, data.journal)
-        );
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const result = await model.generateContent(prompt);
         text = result.response.text().trim();
         break;
-      } catch (error: any) {
-        errorMsg = error.message || "Unknown error";
-        if (errorMsg.includes("429")) {
+      } catch (e: any) {
+        if (e.message?.includes("429")) {
           await new Promise((r) => setTimeout(r, 30000));
-          retryCount++;
+          retry++;
         } else break;
       }
     }
 
     if (text) {
-      await afterSnapshot.ref.update({
+      await snapshot.ref.update({
         reflection: text,
         reflectedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     } else {
-      await afterSnapshot.ref.update({
-        reflection: "Maaf, AI sedang sibuk saat update. Coba lagi nanti.",
-        errorLog: errorMsg.substring(0, 500),
+      await snapshot.ref.update({
+        reflection: "Maaf, AI sedang sibuk saat update.",
       });
     }
   }
 );
 
-// ==================== DAILY SUMMARY (Rekomendasi Keseluruhan - EXISTING)====================
-const SYSTEM_PROMPT_SUMMARY = (journal: string) => `
-Sebagai AI psikolog, JANGAN PERNAH memperkenalkan diri. Langsung berikan inti rekomendasi.
-Berikut adalah rangkuman entri mood dan jurnal user dalam 7 hari terakhir:
-${journal}
-Analisis pola mood, emosi, dan kebiasaan user.
-Berikan 3 poin rekomendasi utama hari ini, **setiap poin harus satu kalimat pendek**. 
-**JANGAN GUNAKAN LEBIH DARI 3 KALIMAT TOTAL.**
-Format respons HANYA dalam 3 kalimat, tanpa poin, tanpa daftar.
-Contoh: 'Fokus pada pola tidurmu minggu ini. Luangkan waktu 10 menit untuk journaling di pagi hari. Beri dirimu apresiasi untuk pencapaian kecil.'
-`;
+/* ==================== DAILY SUMMARY (7 HARI) ================= */
 
 export const generateDailySummary = onDocumentCreated(
   {
@@ -209,6 +368,7 @@ export const generateDailySummary = onDocumentCreated(
       const sevenDaysAgo = admin.firestore.Timestamp.fromDate(
         new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
       );
+
       const entriesSnap = await db
         .collection("mood_entries")
         .where("userId", "==", userId)
@@ -218,7 +378,7 @@ export const generateDailySummary = onDocumentCreated(
 
       if (entriesSnap.empty) return;
 
-      const journal = entriesSnap.docs
+      const journalText = entriesSnap.docs
         .map((doc) => {
           const d = doc.data();
           const date =
@@ -227,15 +387,15 @@ export const generateDailySummary = onDocumentCreated(
         })
         .join("\n");
 
+      const persona = await getUserPersona(userId);
+      const prompt = PERSONA_PROMPTS_SUMMARY[persona](journalText);
+
       const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
       if (!GEMINI_API_KEY) return;
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
-      const result = await model.generateContent(
-        SYSTEM_PROMPT_SUMMARY(journal)
-      );
-      // Memanggil method text()
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const result = await model.generateContent(prompt);
       const summary = result.response.text().trim();
 
       await db
@@ -250,61 +410,45 @@ export const generateDailySummary = onDocumentCreated(
             periodStart: sevenDaysAgo,
             entryCount: entriesSnap.size,
           },
-          {merge: true}
+          { merge: true }
         );
-
-      logger.log(`Summary generated: ${summary.substring(0, 50)}...`);
-    } catch (error: any) {
-      logger.error("Summary Error:", error.message);
+    } catch (e: any) {
+      logger.error("Daily summary error:", e);
     }
   }
 );
 
+/* ====================== DAILY REFLECTION ===================== */
 
-// ==================== NEW: DAILY REFLECTION FOR REFLECTION PAGE ====================
-
-// Prompt baru untuk merangkum kegiatan dan memberikan motivasi harian.
 const SYSTEM_PROMPT_DAILY_REFLECTION = (dailyJournal: string) => `
 Sebagai AI refleksi harian. JANGAN PERNAH memperkenalkan diri. Langsung berikan hasil.
 Berikut adalah rangkuman semua kegiatan dan perasaan user hari ini:
 ${dailyJournal}
 
 Tugas:
-1. **Rangkum Kegiatan:** Dari teks di atas, ekstrak dan rangkum semua kegiatan/aktivitas utama user hari ini menjadi 3-5 poin singkat (maks 1 kalimat per poin).
-2. **Motivasi:** Berdasarkan rangkuman kegiatan tersebut, berikan 1 MOTIVASI singkat (maks 2 kalimat) yang positif dan membangun untuk hari esok atau untuk mengapresiasi hari ini.
+1. Rangkum Kegiatan: ekstrak dan rangkum semua kegiatan utama menjadi 3-5 poin singkat.
+2. Motivasi: berikan 1 motivasi singkat (maks 2 kalimat) yang positif.
 
-Format respons HANYA dalam JSON berikut:
+Format respons HANYA JSON:
 {
-  "summary": ["Poin kegiatan 1", "Poin kegiatan 2", "Poin kegiatan 3"],
-  "motivation": "Kalimat motivasi yang singkat dan positif."
+  "summary": ["poin 1", "poin 2", ...],
+  "motivation": "Kalimat motivasi."
 }
-JANGAN gunakan format lain, JANGAN berikan penjelasan di luar JSON. Gunakan bahasa Indonesia santai.
+Gunakan bahasa Indonesia santai.
 `;
 
-// Definisikan tipe kembalian di sini
-type TimestampRange = {
-  start: admin.firestore.Timestamp;
-  end: admin.firestore.Timestamp;
-};
+type TimestampRange = { start: admin.firestore.Timestamp; end: admin.firestore.Timestamp };
 
-/**
- * Mengkonversi string tanggal (YYYY-MM-DD) ke rentang Timestamp (awal dan akhir hari).
- * @param {string} dateString String tanggal dalam format YYYY-MM-DD.
- * @return {TimestampRange} Objek berisi timestamp awal dan akhir hari.
- */
-function getDateRange(dateString: string): TimestampRange { //
+function getDateRange(dateString: string): TimestampRange {
   const date = new Date(dateString);
   date.setHours(0, 0, 0, 0);
   const start = admin.firestore.Timestamp.fromDate(date);
-
   const endOfDay = new Date(dateString);
   endOfDay.setHours(23, 59, 59, 999);
   const end = admin.firestore.Timestamp.fromDate(endOfDay);
-
-  return {start, end};
+  return { start, end };
 }
 
-// === getDailyReflection (FIXED & STABIL) ===
 export const getDailyReflection = onCall(
   {
     region: "asia-southeast2",
@@ -315,19 +459,13 @@ export const getDailyReflection = onCall(
   async (request) => {
     const userId = request.auth?.uid;
     const dateString = request.data.date as string;
-
-    if (!userId || !dateString) {
-      throw new HttpsError("invalid-argument", "Data tidak lengkap.");
-    }
+    if (!userId || !dateString) throw new HttpsError("invalid-argument", "Data tidak lengkap.");
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) {
-      throw new HttpsError("internal", "API Key hilang.");
-    }
+    if (!GEMINI_API_KEY) throw new HttpsError("internal", "API Key hilang.");
 
     try {
-      const {start, end} = getDateRange(dateString);
-
+      const { start, end } = getDateRange(dateString);
       const entriesSnap = await db
         .collection("mood_entries")
         .where("userId", "==", userId)
@@ -348,12 +486,8 @@ export const getDailyReflection = onCall(
         .join("\n---\n");
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
-
-      // GUNAKAN SYSTEM_PROMPT_DAILY_REFLECTION!
-      const prompt = SYSTEM_PROMPT_DAILY_REFLECTION(journals);
-
-      const result = await model.generateContent(prompt);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const result = await model.generateContent(SYSTEM_PROMPT_DAILY_REFLECTION(journals));
       const text = result.response.text().trim();
 
       let summary: string[] = [];
@@ -364,25 +498,20 @@ export const getDailyReflection = onCall(
         const json = JSON.parse(cleaned);
         summary = Array.isArray(json.summary) ? json.summary.slice(0, 5) : [];
         motivation = json.motivation || motivation;
-      } catch (e) {
-        logger.warn("Gagal parse JSON dari AI", {text, error: e});
+      } catch {
         summary = journals.split("\n---\n").slice(0, 5).map((s) => s.substring(0, 120));
       }
 
-      return {summary, motivation};
-    } catch (error: any) {
-      logger.error("getDailyReflection Error:", {
-        message: error.message,
-        userId,
-        dateString,
-      });
-      throw new HttpsError("internal", "Gagal proses AI: " + error.message);
+      return { summary, motivation };
+    } catch (e: any) {
+      logger.error("getDailyReflection error:", e);
+      throw new HttpsError("internal", "Gagal proses AI.");
     }
   }
 );
 
+/* ========================== CHATBOT ========================== */
 
-// ==================== CHATBOT (EXISTING) ====================
 export const sendChatMessage = onCall(
   {
     region: "asia-southeast2",
@@ -391,8 +520,8 @@ export const sendChatMessage = onCall(
     memory: "1GiB",
   },
   async (request) => {
-    const {userId, message, chatId} = request.data;
-    if (!userId || !message) throw new Error("Missing userId or message");
+    const { userId, message, chatId } = request.data;
+    if (!userId || !message) throw new Error("Missing data");
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) throw new Error("API Key missing");
@@ -400,19 +529,10 @@ export const sendChatMessage = onCall(
     try {
       let sessionRef;
       if (chatId) {
-        sessionRef = db
-          .collection("users")
-          .doc(userId)
-          .collection("chats")
-          .doc(chatId);
-        const doc = await sessionRef.get();
-        if (!doc.exists) throw new Error("Chat session not found");
+        sessionRef = db.collection("users").doc(userId).collection("chats").doc(chatId);
+        if (!(await sessionRef.get()).exists) throw new Error("Chat not found");
       } else {
-        sessionRef = db
-          .collection("users")
-          .doc(userId)
-          .collection("chats")
-          .doc();
+        sessionRef = db.collection("users").doc(userId).collection("chats").doc();
         await sessionRef.set({
           startedAt: admin.firestore.FieldValue.serverTimestamp(),
           lastMessage: admin.firestore.FieldValue.serverTimestamp(),
@@ -423,7 +543,7 @@ export const sendChatMessage = onCall(
 
       await sessionRef.collection("messages").add({
         role: "user",
-        message: message,
+        message,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
       await sessionRef.update({
@@ -432,38 +552,33 @@ export const sendChatMessage = onCall(
       });
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
-      const currentSummary =
-        (await sessionRef.get()).data()?.summary || "Percakapan dimulai.";
-      const recentSnap = await sessionRef
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const summary = (await sessionRef.get()).data()?.summary || "Percakapan dimulai.";
+      const recent = await sessionRef
         .collection("messages")
         .orderBy("timestamp", "desc")
         .limit(2)
         .get();
-      const recentMessages = recentSnap.docs
+      const recentText = recent.docs
         .reverse()
-        .map((doc) => {
-          const d = doc.data();
-          return `${d.role === "user" ? "User" : "MoodBuddy"}: ${d.message}`;
-        })
+        .map((d) => (d.data().role === "user" ? "User" : "MoodBuddy") + ": " + d.data().message)
         .join("\n");
 
       const prompt = `
         Kamu adalah "MoodBuddy", psikolog ramah.
-        Konteks sebelumnya: "${currentSummary}"
+        Konteks sebelumnya: "${summary}"
         Pesan terbaru:
-        ${recentMessages}
+        ${recentText}
         Balas singkat (1-2 kalimat), empati, bahasa Indonesia santai.
         JANGAN ulangi konteks. JANGAN pakai emoji.
       `;
 
-      // Memanggil method text()
       const result = await model.generateContent(prompt);
-      const aiResponse = result.response.text().trim();
+      const reply = result.response.text().trim();
 
       await sessionRef.collection("messages").add({
         role: "ai",
-        message: aiResponse,
+        message: reply,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
       await sessionRef.update({
@@ -471,103 +586,55 @@ export const sendChatMessage = onCall(
         messageCount: admin.firestore.FieldValue.increment(1),
       });
 
-      const messageCount = (await sessionRef.get()).data()?.messageCount || 0;
-      if (messageCount % 3 === 0 && messageCount > 0) {
-        const allSnap = await sessionRef
-          .collection("messages")
-          .orderBy("timestamp")
-          .get();
-        const fullHistory = allSnap.docs
-          .map((doc) => {
-            const d = doc.data();
-            return `${d.role === "user" ? "User" : "MoodBuddy"}: ${d.message}`;
-          })
-          .join("\n");
-
-        const summaryPrompt = `
-          Ringkas percakapan ini dalam 1 kalimat (maks 25 kata):
-          "${fullHistory}"
-          Fokus emosi user dan saran MoodBuddy.
-        `;
-        // Memanggil method text()
-        const summaryResult = await model.generateContent(summaryPrompt);
-        const newSummary = summaryResult.response.text().trim();
-        await sessionRef.update({summary: newSummary});
-        logger.log(`Chat summary updated: ${newSummary}`);
-      }
-
-      return {
-        reply: aiResponse,
-        chatId: sessionRef.id,
-      };
-    } catch (error: any) {
-      logger.error("Chatbot Error:", error.message);
-      throw new Error("Gagal: " + error.message);
+      return { reply, chatId: sessionRef.id };
+    } catch (e: any) {
+      logger.error("Chat error:", e);
+      throw new Error("Gagal: " + e.message);
     }
   }
 );
 
-// ==================== CLEANUP CHAT MESSAGES (EXISTING) ====================
+/* ======================= CLEANUP & ETC ======================= */
+
+async function deleteCollection(
+  collectionRef: admin.firestore.CollectionReference,
+  batchSize = 500
+) {
+  const snapshot = await collectionRef.limit(batchSize).get();
+  if (snapshot.empty) return;
+  const batch = db.batch();
+  snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+  await batch.commit();
+  await deleteCollection(collectionRef, batchSize);
+}
+
 export const cleanupChatMessages = onDocumentDeleted(
-  {
-    document: "users/{userId}/chats/{chatId}",
-    region: "asia-southeast2",
-    timeoutSeconds: 300,
-    memory: "1GiB",
-  },
+  { document: "users/{userId}/chats/{chatId}", region: "asia-southeast2" },
   async (event) => {
-    const userId = event.params.userId;
-    const chatId = event.params.chatId;
-
-    logger.log(`[CHAT DELETED] Membersihkan messages untuk chat: ${chatId}`);
-
     const messagesRef = db
       .collection("users")
-      .doc(userId)
+      .doc(event.params.userId)
       .collection("chats")
-      .doc(chatId)
+      .doc(event.params.chatId)
       .collection("messages");
-
-    try {
-      await deleteCollection(messagesRef);
-      logger.log(
-        `[CHAT DELETED] Berhasil hapus messages untuk chat: ${chatId}`
-      );
-    } catch (error: any) {
-      logger.error("[CHAT DELETED] Gagal hapus messages:", error);
-    }
+    await deleteCollection(messagesRef);
   }
 );
 
-// ==================== CLEANUP USER DATA (v1 - EXISTING) ====================
 export const cleanupUserDataOnDelete = functionsV1
   .region("asia-southeast2")
   .auth.user()
   .onDelete(async (user) => {
     const uid = user.uid;
-    logger.log(`[USER DELETED] Membersihkan data untuk user: ${uid}`);
-
-    try {
-      // 1. Hapus mood_entries
-      const moodQuery = db
-        .collection("mood_entries")
-        .where("userId", "==", uid);
-      const moodSnap = await moodQuery.get();
-      if (!moodSnap.empty) {
-        const batch = db.batch();
-        moodSnap.docs.forEach((doc) => batch.delete(doc.ref));
-        await batch.commit();
-        logger.log(`[USER DELETED] Hapus ${moodSnap.size} mood_entries`);
-      }
-
-      // 2. Hapus user doc + subcollections
-      const userDocRef = db.collection("users").doc(uid);
-      await deleteCollection(userDocRef.collection("chats"));
-      await deleteCollection(userDocRef.collection("summary"));
-      await userDocRef.delete();
-
-      logger.log(`[USER DELETED] Selesai bersihkan data user: ${uid}`);
-    } catch (error: any) {
-      logger.error("[USER DELETED] Error:", error);
+    const moodQuery = db.collection("mood_entries").where("userId", "==", uid);
+    const moodSnap = await moodQuery.get();
+    if (!moodSnap.empty) {
+      const batch = db.batch();
+      moodSnap.docs.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
     }
+    const userDocRef = db.collection("users").doc(uid);
+    await deleteCollection(userDocRef.collection("chats"));
+    await deleteCollection(userDocRef.collection("summary"));
+    await userDocRef.delete();
   });

@@ -1,7 +1,9 @@
 // lib/profile_page.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'auth_wrapper.dart';
@@ -21,6 +23,9 @@ class _ProfilePageState extends State<ProfilePage> {
   static const String _kNotificationTimeHourKey = 'daily_notification_hour';
   static const String _kNotificationTimeMinuteKey = 'daily_notification_minute';
 
+  // Persona state
+  String _currentPersona = 'friendly';
+
   bool _dailyNotificationEnabled = false;
   TimeOfDay? _selectedNotificationTime;
   bool _emergencyAlertEnabled = false;
@@ -30,6 +35,37 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _loadSettings();
+    _loadPersona();
+  }
+
+  // Load persona dari Firestore
+  Future<void> _loadPersona() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      final savedPersona = doc.data()?['aiPersona'] as String?;
+      if (savedPersona != null &&
+          [
+            'formal',
+            'tough',
+            'friendly',
+            'coach',
+            'motherly',
+            'bestie',
+          ].contains(savedPersona)) {
+        setState(() => _currentPersona = savedPersona);
+      }
+      // Kalau null → tetap pakai 'friendly' sebagai default
+    } catch (e) {
+      debugPrint('Gagal load persona: $e');
+      // Tetap pakai default 'friendly'
+    }
   }
 
   // --- Fungsi Memuat Pengaturan ---
@@ -61,6 +97,84 @@ class _ProfilePageState extends State<ProfilePage> {
       await prefs.remove(_kNotificationTimeHourKey);
       await prefs.remove(_kNotificationTimeMinuteKey);
     }
+  }
+
+  // Persona Selection Dialog
+  Future<void> _showPersonaSelectionDialog() async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Pilih Persona AI'),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _personaTile('formal', 'Formal', 'Professional & Formal'),
+            _personaTile('tough', 'Tough', 'Tegas & Disiplin (Tough Love)'),
+            _personaTile('friendly', 'Friendly', 'Sahabat Ramah & Supportif'),
+            _personaTile('coach', 'Coach', 'Motivator Energik'),
+            _personaTile('motherly', 'Motherly', 'Keibuan & Mengayomi'),
+            _personaTile('bestie', 'Bestie', 'Bestie Gaul Santai'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+        ],
+      ),
+    );
+
+    if (selected != null && selected != _currentPersona) {
+      final userId = FirebaseAuth.instance.currentUser!.uid;
+      await FirebaseFirestore.instance.collection('users').doc(userId).set({
+        'aiPersona': selected,
+      }, SetOptions(merge: true));
+
+      setState(() => _currentPersona = selected);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Persona AI diubah jadi ${_getPersonaDisplayName(selected)}!',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _personaTile(String value, String title, String subtitle) {
+    final isSelected = _currentPersona == value;
+    return ListTile(
+      leading: Radio<String>(
+        value: value,
+        groupValue: _currentPersona,
+        onChanged: (val) => Navigator.pop(context, val),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 13)),
+      selected: isSelected,
+      selectedTileColor: Colors.blue.withOpacity(0.1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onTap: () => Navigator.pop(context, value),
+    );
+  }
+
+  // Nama tampilan persona
+  String _getPersonaDisplayName(String key) {
+    const map = {
+      'formal': 'Formal',
+      'tough': 'Tough',
+      'friendly': 'Friendly',
+      'coach': 'Coach',
+      'motherly': 'Motherly',
+      'bestie': 'Bestie',
+    };
+    return map[key] ?? 'Friendly';
   }
 
   // --- FITUR BARU: GANTI PASSWORD (PERMANTAP UI) ---
@@ -599,12 +713,11 @@ class _ProfilePageState extends State<ProfilePage> {
     const Color primaryBlue = Color(0xFF3B82F6);
     const Color dangerRed = Colors.redAccent;
 
-    final User? currentUser = FirebaseAuth.instance.currentUser;
+    final user = FirebaseAuth.instance.currentUser;
+    final userName = user?.displayName ?? "Pengguna";
+    final userEmail = user?.email ?? "email@example.com";
 
-    final String userName = currentUser?.displayName ?? "Pengguna";
-    final String userEmail = currentUser?.email ?? "email@example.com";
-
-    final String? notificationTimeText =
+    final notificationTimeText =
         (_dailyNotificationEnabled && _selectedNotificationTime != null)
         ? 'Diatur untuk: ${_selectedNotificationTime!.format(context)}'
         : null;
@@ -613,9 +726,9 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 30.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
           children: [
-            // Bagian Atas
+            // Header
             Column(
               children: [
                 CircleAvatar(
@@ -643,56 +756,38 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
             const SizedBox(height: 40),
-            // Section Pengaturan
+
+            // Pengaturan
             _buildSectionTitle('Pengaturan'),
             const SizedBox(height: 10),
             _buildSettingsCard(
               children: [
                 _buildProfileOptionRow(
+                  icon: Icons.smart_toy_outlined,
+                  text: 'Persona AI',
+                  subtitle:
+                      'Saat ini: ${_getPersonaDisplayName(_currentPersona)}',
+                  onTap: _showPersonaSelectionDialog,
+                ),
+                _buildDivider(),
+                _buildProfileOptionRow(
                   icon: Icons.edit_outlined,
                   text: 'Edit Profile',
                   onTap: () async {
-                    final bool? profileUpdated = await Navigator.push<bool>(
+                    final updated = await Navigator.push<bool>(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const EditProfilePage(),
+                        builder: (_) => const EditProfilePage(),
                       ),
                     );
-
-                    if (profileUpdated == true) {
-                      setState(() {
-                        // Build akan dipanggil ulang
-                      });
-                    }
+                    if (updated == true) setState(() {});
                   },
                 ),
                 _buildDivider(),
-                // Tampilkan loading atau switch
                 _isLoadingSettings
                     ? const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 15.0,
-                          vertical: 28.0,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.notifications_none_outlined,
-                              color: Colors.black54,
-                            ),
-                            SizedBox(width: 15),
-                            Expanded(
-                              child: Text(
-                                'Memuat pengaturan notifikasi...',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.black54,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        padding: EdgeInsets.all(20),
+                        child: Text('Memuat pengaturan...'),
                       )
                     : _buildSwitchOptionRow(
                         icon: Icons.notifications_none_outlined,
@@ -706,29 +801,24 @@ class _ProfilePageState extends State<ProfilePage> {
                   icon: Icons.warning_amber_rounded,
                   text: 'Emergency Alert',
                   value: _emergencyAlertEnabled,
-                  onChanged: (value) {
-                    setState(() {
-                      _emergencyAlertEnabled = value;
-                    });
-                  },
+                  onChanged: (v) => setState(() => _emergencyAlertEnabled = v),
                 ),
               ],
             ),
+
             const SizedBox(height: 30),
-            // Section Akun
+
+            // Akun
             _buildSectionTitle('Akun'),
             const SizedBox(height: 10),
             _buildSettingsCard(
               children: [
-                // --- MENU GANTI PASSWORD ---
                 _buildProfileOptionRow(
-                  icon: Icons.lock_outline, // Menggunakan ikon gembok biasa
+                  icon: Icons.lock_outline,
                   text: 'Change Password',
-                  onTap:
-                      _showChangePasswordDialog, // Panggil dialog ganti password
+                  onTap: _showChangePasswordDialog,
                 ),
                 _buildDivider(),
-                // ---------------------------
                 _buildProfileOptionRow(
                   icon: Icons.delete_outline,
                   text: 'Delete Account',
@@ -754,38 +844,33 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- Helper Widgets ---
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 5.0),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF3B82F6),
-        ),
+  // Helper Widgets (sama seperti sebelumnya)
+  Widget _buildSectionTitle(String title) => Padding(
+    padding: const EdgeInsets.only(left: 5),
+    child: Text(
+      title,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: Color(0xFF3B82F6),
       ),
-    );
-  }
+    ),
+  );
 
-  Widget _buildSettingsCard({required List<Widget> children}) {
-    const Color lightCardBg = Color(0xFFF0F9FF);
-    const Color lightBorderBlue = Color(0xFFE0F2FE);
-    return Container(
-      decoration: BoxDecoration(
-        color: lightCardBg,
-        borderRadius: BorderRadius.circular(15.0),
-        border: Border.all(color: lightBorderBlue, width: 1.0),
-      ),
-      child: Column(children: children),
-    );
-  }
+  Widget _buildSettingsCard({required List<Widget> children}) => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 4),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF0F9FF),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xFFE0F2FE)),
+    ),
+    child: Column(children: children),
+  );
 
   Widget _buildProfileOptionRow({
     required IconData icon,
     required String text,
+    String? subtitle,
     required VoidCallback onTap,
     Color textColor = Colors.black87,
     Color iconColor = Colors.black54,
@@ -793,21 +878,34 @@ class _ProfilePageState extends State<ProfilePage> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(15.0),
+      borderRadius: BorderRadius.circular(15),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 18.0),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
         child: Row(
           children: [
             Icon(icon, color: iconColor),
             const SizedBox(width: 15),
             Expanded(
-              child: Text(
-                text,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: textColor,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: textColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        subtitle,
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      ),
+                    ),
+                ],
               ),
             ),
             if (showArrow)
@@ -821,13 +919,13 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildSwitchOptionRow({
     required IconData icon,
     required String text,
+    String? subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
     Color iconColor = Colors.black54,
-    String? subtitle,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 10.0),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       child: Row(
         children: [
           Icon(icon, color: iconColor),
@@ -845,12 +943,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
                 if (subtitle != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2.0),
-                    child: Text(
-                      subtitle,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                    ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                   ),
               ],
             ),
@@ -858,21 +953,18 @@ class _ProfilePageState extends State<ProfilePage> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeTrackColor: const Color(0xFF3B82F6).withOpacity(0.5),
-            activeThumbColor: const Color(0xFF3B82F6),
+            activeColor: const Color(0xFF3B82F6),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDivider() {
-    return Divider(
-      height: 1,
-      thickness: 1,
-      color: const Color(0xFFE0F2FE),
-      indent: 50,
-      endIndent: 15,
-    );
-  }
+  Widget _buildDivider() => const Divider(
+    height: 1,
+    thickness: 1,
+    color: Color(0xFFE0F2FE),
+    indent: 50,
+    endIndent: 15,
+  );
 }

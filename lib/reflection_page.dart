@@ -291,7 +291,7 @@ class _ReflectionPageState extends State<ReflectionPage> {
                       CircularProgressIndicator(color: _themeColor),
                       const SizedBox(height: 16),
                       const Text(
-                        "AI sedang merenung sejenak...",
+                        "AI sedang menganalisis...",
                         style: TextStyle(color: Colors.grey),
                       ),
                     ],
