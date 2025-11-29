@@ -30,12 +30,13 @@ class _StatisticsPageState extends State<StatisticsPage> {
   late List<PieChartSectionData> _pieChartSections;
   int _touchedIndex = -1;
 
-  // Style konstan dari home_page.dart
+  // Style konstan
   final Color primaryBlue = const Color(0xFF3B82F6);
   final TextStyle headerStyle = const TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w600,
     color: Color(0xFF3B82F6), // primaryBlue
+    fontFamily: 'Poppins', // Tambahkan Poppins juga di sub-header
   );
 
   @override
@@ -44,7 +45,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
     _fetchMoodData(_currentFilter);
   }
 
-  // Fungsi untuk mendapatkan warna berdasarkan mood (Sesuai home_page.dart)
+  // Fungsi untuk mendapatkan warna berdasarkan mood
   Color _getMoodColor(String mood) {
     switch (mood) {
       case 'Sangat Baik':
@@ -58,11 +59,11 @@ class _StatisticsPageState extends State<StatisticsPage> {
       case 'Sangat Buruk':
         return Colors.red;
       default:
-        return Colors.grey.shade400; // Warna default untuk border N/A
+        return Colors.grey.shade400;
     }
   }
 
-  // Dekorasi Card (Sesuai home_page.dart)
+  // Dekorasi Card
   BoxDecoration _cardDecoration(Color borderColor) {
     return BoxDecoration(
       color: Colors.white,
@@ -224,6 +225,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: Colors.grey[700],
+                      fontFamily: 'Poppins',
                     ),
                   ),
                 );
@@ -242,7 +244,11 @@ class _StatisticsPageState extends State<StatisticsPage> {
               if (value == 0 || value > maxCount + 0.5) return Container();
               return Text(
                 value.toInt().toString(),
-                style: const TextStyle(fontSize: 10, color: Colors.black54),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.black54,
+                  fontFamily: 'Poppins',
+                ),
                 textAlign: TextAlign.left,
               );
             },
@@ -340,7 +346,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
             'Total Entri',
             totalEntries.toString(),
             Icons.list_alt_rounded,
-            Colors.blue.shade600, // Warna ikon untuk Total Entri
+            Colors.blue.shade600,
           ),
         ),
         const SizedBox(width: 16),
@@ -349,14 +355,14 @@ class _StatisticsPageState extends State<StatisticsPage> {
             'Rata-rata Mood',
             avgMood,
             Icons.insights_rounded,
-            avgMoodColor, // Warna ikon untuk Rata-rata
+            avgMoodColor,
           ),
         ),
       ],
     );
   }
 
-  // Menggunakan style Container dari home_page.dart
+  // Widget Card Statistik Umum
   Widget _buildStatCard(
     String title,
     String value,
@@ -365,16 +371,27 @@ class _StatisticsPageState extends State<StatisticsPage> {
   ) {
     return Container(
       padding: const EdgeInsets.all(16.0),
-      decoration: _cardDecoration(iconColor.withOpacity(0.5)), // Border card
+      decoration: _cardDecoration(iconColor.withOpacity(0.5)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: iconColor, size: 28),
           const SizedBox(height: 12),
-          Text(title, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 13,
+              fontFamily: 'Poppins',
+            ),
+          ),
           Text(
             value,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Poppins',
+            ),
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -390,7 +407,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
         child: Center(
           child: Text(
             'Tidak ada data distribusi.',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: Colors.grey, fontFamily: 'Poppins'),
           ),
         ),
       );
@@ -401,28 +418,26 @@ class _StatisticsPageState extends State<StatisticsPage> {
     _pieChartSections = moodCounts.entries.map((entry) {
       final isTouched =
           (moodCounts.keys.toList().indexOf(entry.key) == _touchedIndex);
-      // Radius dikecilkan
       final double radius = isTouched ? 60.0 : 50.0;
       final double percentage = (entry.value / total) * 100;
 
       return PieChartSectionData(
         color: _getMoodColor(entry.key),
         value: entry.value.toDouble(),
-        title: (percentage < 10)
-            ? ''
-            : '${percentage.toStringAsFixed(0)}%', // Sembunyikan % jika terlalu kecil
+        title: (percentage < 10) ? '' : '${percentage.toStringAsFixed(0)}%',
         radius: radius,
         titleStyle: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
           color: Colors.white,
+          fontFamily: 'Poppins',
           shadows: [Shadow(color: Colors.black, blurRadius: 2)],
         ),
       );
     }).toList();
 
     return SizedBox(
-      height: 180, // Disesuaikan
+      height: 180,
       child: PieChart(
         PieChartData(
           pieTouchData: PieTouchData(
@@ -440,7 +455,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
             },
           ),
           sections: _pieChartSections,
-          // Radius tengah dikecilkan
           centerSpaceRadius: 40,
           sectionsSpace: 2,
         ),
@@ -448,25 +462,23 @@ class _StatisticsPageState extends State<StatisticsPage> {
     );
   }
 
-  // --- Legenda: Menggunakan 'Wrap' ---
+  // --- Legenda ---
   Widget _buildLegend(Map<String, int> moodCounts) {
     if (moodCounts.isEmpty) return const SizedBox.shrink();
 
-    // Wrap akan otomatis memindahkan item ke bawah jika tidak muat
     return Wrap(
-      spacing: 12.0, // Jarak horizontal antar item
-      runSpacing: 8.0, // Jarak vertikal antar baris
-      alignment: WrapAlignment.start, // Ratakan ke kiri
+      spacing: 12.0,
+      runSpacing: 8.0,
+      alignment: WrapAlignment.start,
       children: moodCounts.entries.map((entry) {
         return _buildLegendItem(_getMoodColor(entry.key), entry.key);
       }).toList(),
     );
   }
 
-  // --- Item Legenda: Menggunakan 'Row' ---
   Widget _buildLegendItem(Color color, String text) {
     return Row(
-      mainAxisSize: MainAxisSize.min, // Hanya memakan tempat seperlunya
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 16,
@@ -479,14 +491,17 @@ class _StatisticsPageState extends State<StatisticsPage> {
         const SizedBox(width: 8),
         Text(
           text,
-          // Font dikecilkan
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            fontFamily: 'Poppins',
+          ),
         ),
       ],
     );
   }
 
-  // --- Widget Card Ringkasan (Menggunakan Style Baru) ---
+  // --- Widget Card Ringkasan ---
   Widget _buildSummaryCard(
     String title,
     MapEntry<String, int>? entry,
@@ -496,13 +511,10 @@ class _StatisticsPageState extends State<StatisticsPage> {
     final int count = entry?.value ?? 0;
     final Color color = _getMoodColor(mood);
 
-    // Menggunakan style Container dari home_page.dart
     return Container(
-      margin: const EdgeInsets.symmetric(
-        vertical: 6.0,
-      ), // Beri jarak antar card
+      margin: const EdgeInsets.symmetric(vertical: 6.0),
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      decoration: _cardDecoration(color), // Border dinamis
+      decoration: _cardDecoration(color),
       child: Row(
         children: [
           Icon(defaultIcon, color: color, size: 28),
@@ -510,7 +522,11 @@ class _StatisticsPageState extends State<StatisticsPage> {
           Expanded(
             child: Text(
               '$title: $mood (${count}x)',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Poppins',
+              ),
             ),
           ),
         ],
@@ -518,9 +534,8 @@ class _StatisticsPageState extends State<StatisticsPage> {
     );
   }
 
-  // --- PERUBAHAN: Widget Filter Baru (Menggantikan Dropdown) ---
+  // --- Widget Filter ---
   Widget _buildFilterToggle() {
-    // List untuk status terpilih
     final List<bool> isSelected = [
       _currentFilter == '7 Hari Terakhir',
       _currentFilter == '30 Hari Terakhir',
@@ -529,7 +544,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     return ToggleButtons(
       isSelected: isSelected,
       onPressed: (int index) {
-        // Hanya update jika tombol yang berbeda ditekan
         if (index == 0 && _currentFilter != '7 Hari Terakhir') {
           setState(() {
             _currentFilter = '7 Hari Terakhir';
@@ -542,7 +556,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
           _fetchMoodData('30 Hari Terakhir');
         }
       },
-      // Styling agar terlihat seperti di gambar
       color: Colors.grey[700],
       selectedColor: primaryBlue,
       fillColor: primaryBlue.withOpacity(0.1),
@@ -550,30 +563,33 @@ class _StatisticsPageState extends State<StatisticsPage> {
       borderRadius: BorderRadius.circular(10.0),
       borderColor: Colors.grey.shade300,
       borderWidth: 1.5,
-      constraints: BoxConstraints(
-        // Atur minHeight agar tidak terlalu kecil
-        minHeight: 40.0,
-      ),
-      children: <Widget>[
-        // Padding untuk memberi ruang di dalam tombol
+      constraints: const BoxConstraints(minHeight: 40.0),
+      children: const <Widget>[
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          padding: EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
             '7 Hari Terakhir',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Poppins',
+            ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          padding: EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
             '30 Hari Terakhir',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Poppins',
+            ),
           ),
         ),
       ],
     );
   }
-  // --- AKHIR PERUBAHAN ---
 
   @override
   Widget build(BuildContext context) {
@@ -586,48 +602,48 @@ class _StatisticsPageState extends State<StatisticsPage> {
         : null;
 
     return Scaffold(
-      // AppBar disamakan dengan style di halaman lain
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Statistik'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
         centerTitle: true,
+        scrolledUnderElevation: 0, // Mencegah perubahan warna saat scroll
+        // --- TOMBOL KEMBALI CUSTOM ---
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          color: Colors.black,
+          iconSize: 24,
+          tooltip: 'Kembali',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         titleTextStyle: const TextStyle(
           color: Colors.black,
           fontSize: 18,
           fontWeight: FontWeight.w600,
+          fontFamily: 'Poppins', // Menggunakan font Poppins
         ),
       ),
-      backgroundColor: Colors.white, // Samakan background
       body: SingleChildScrollView(
-        // Padding disamakan dengan home_page.dart
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            // --- PERUBAHAN: Filter dipindah ke atas ---
             Center(child: _buildFilterToggle()),
-            const SizedBox(height: 25), // Jarak antar bagian
-            // --- AKHIR PERUBAHAN ---
+            const SizedBox(height: 25),
 
-            // --- BAGIAN 1: STATISTIK UMUM ---
             Text('Statistik Umum', style: headerStyle),
             const SizedBox(height: 10),
             _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _buildOverallStats(),
-            const SizedBox(height: 25), // Jarak antar bagian
-            // --- BAGIAN 2: FREKUENSI MOOD ---
-            // --- PERUBAHAN: Dropdown dihilangkan dari Row ---
+            const SizedBox(height: 25),
+
             Text('Frekuensi Mood', style: headerStyle),
-            // --- AKHIR PERUBAHAN ---
             const SizedBox(height: 15),
-            // Menggunakan style Container dari home_page.dart
             Container(
-              decoration: _cardDecoration(
-                Colors.grey.shade200,
-              ), // Border netral
+              decoration: _cardDecoration(Colors.grey.shade200),
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
               child: SizedBox(
                 height: 300,
@@ -638,7 +654,10 @@ class _StatisticsPageState extends State<StatisticsPage> {
                         child: Text(
                           'Tidak ada data mood dalam ${_currentFilter.toLowerCase()}.',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.grey),
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontFamily: 'Poppins',
+                          ),
                         ),
                       )
                     : BarChart(_mainBarData()),
@@ -646,38 +665,29 @@ class _StatisticsPageState extends State<StatisticsPage> {
             ),
             const SizedBox(height: 25),
 
-            // --- BAGIAN 3: DISTRIBUSI MOOD (DENGAN LEGENDA) ---
             Text('Distribusi Mood', style: headerStyle),
             const SizedBox(height: 15),
-            // Menggunakan style Container dari home_page.dart
             Container(
-              decoration: _cardDecoration(
-                Colors.grey.shade200,
-              ), // Border netral
+              decoration: _cardDecoration(Colors.grey.shade200),
               padding: const EdgeInsets.all(16.0),
               child: _isLoading
                   ? const SizedBox(
                       height: 180,
                       child: Center(child: CircularProgressIndicator()),
                     )
-                  // Layout Row (kiri-kanan) yang sudah diperbaiki
                   : Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Pie Chart
                         Expanded(
-                          flex: 3, // Ambil 3/5 ruang
+                          flex: 3,
                           child: _buildPieChartSection(
                             summary['moodCounts'] as Map<String, int>,
                           ),
                         ),
-                        // Jarak
                         const SizedBox(width: 24),
-                        // Legenda
                         Expanded(
-                          flex: 2, // Ambil 2/5 ruang
+                          flex: 2,
                           child: _buildLegend(
-                            // _buildLegend akan mereturn 'Wrap'
                             summary['moodCounts'] as Map<String, int>,
                           ),
                         ),
@@ -686,7 +696,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
             ),
             const SizedBox(height: 25),
 
-            // --- BAGIAN 4: RINGKASAN ---
             Text('Ringkasan', style: headerStyle),
             const SizedBox(height: 10),
             _isLoading
@@ -697,7 +706,11 @@ class _StatisticsPageState extends State<StatisticsPage> {
                     child: Text(
                       'Tidak ada data untuk diringkas.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 15),
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 15,
+                        fontFamily: 'Poppins',
+                      ),
                     ),
                   )
                 : Column(
@@ -714,9 +727,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
                       ),
                     ],
                   ),
-
-            // Beri jarak di bagian bawah
-            const SizedBox(height: 80), // Jarak untuk BottomNav
+            const SizedBox(height: 80),
           ],
         ),
       ),

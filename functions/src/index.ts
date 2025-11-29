@@ -4,10 +4,10 @@ import {
   onDocumentUpdated,
   onDocumentDeleted,
 } from "firebase-functions/v2/firestore";
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as functionsV1 from "firebase-functions/v1";
 import * as admin from "firebase-admin";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import {GoogleGenerativeAI} from "@google/generative-ai";
 import * as logger from "firebase-functions/logger";
 
 admin.initializeApp();
@@ -91,12 +91,18 @@ Kasih 3 saran santai tapi ngena banget buat hari ini. Maksimal 3 kalimat, pake b
 `,
 };
 
-/* Helper: ambil persona user (default = friendly) */
+/**
+ * Mengambil preferensi persona AI user dari database.
+ * Jika tidak ditemukan atau terjadi error, akan mengembalikan nilai default 'friendly'.
+ *
+ * @param {string} userId - ID unik dari pengguna (UID).
+ * @return {Promise<PersonaType>} Promise yang berisi tipe persona.
+ */
 async function getUserPersona(userId: string): Promise<PersonaType> {
   try {
     const doc = await db.collection("users").doc(userId).get();
     const p = doc.data()?.aiPersona as PersonaType;
-    if (p && ["formal","tough","friendly","coach","motherly","bestie"].includes(p)) {
+    if (p && ["formal", "tough", "friendly", "coach", "motherly", "bestie"].includes(p)) {
       return p;
     }
   } catch (e) {
@@ -136,28 +142,29 @@ export const detectAndSetMood = onDocumentCreated(
     const snapshot = event.data;
     if (!snapshot) return;
     const data = snapshot.data();
-    if (!data?.journal || (data.mood !== "Menunggu AI..." && data.mood !== null))
+    if (!data?.journal || (data.mood !== "Menunggu AI..." && data.mood !== null)) {
       return;
+    }
 
     const journal = data.journal as string;
     if (journal.trim().length < 10) {
-      await snapshot.ref.update({ mood: "Biasa Saja" });
+      await snapshot.ref.update({mood: "Biasa Saja"});
       return;
     }
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await snapshot.ref.update({ mood: "Biasa Saja" });
+      await snapshot.ref.update({mood: "Biasa Saja"});
       return;
     }
 
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const result = await model.generateContent(
         SYSTEM_PROMPT_MOOD_ACCURATE(journal)
       );
-      let detected = result.response.text().trim();
+      const detected = result.response.text().trim();
 
       const valid = ["Sangat Baik", "Baik", "Biasa Saja", "Buruk", "Sangat Buruk"];
       const finalMood = valid.find((m) => detected.includes(m)) || "Biasa Saja";
@@ -168,7 +175,7 @@ export const detectAndSetMood = onDocumentCreated(
       });
     } catch (e: any) {
       logger.error("Mood detection error:", e);
-      await snapshot.ref.update({ mood: "Biasa Saja" });
+      await snapshot.ref.update({mood: "Biasa Saja"});
     }
   }
 );
@@ -193,24 +200,24 @@ export const detectAndSetMoodOnUpdate = onDocumentUpdated(
     if (!moodReset && !journalChanged) return;
 
     if (!after.journal || after.journal.trim().length < 10) {
-      await snapshot.ref.update({ mood: "Biasa Saja" });
+      await snapshot.ref.update({mood: "Biasa Saja"});
       return;
     }
 
     const journal = after.journal as string;
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await snapshot.ref.update({ mood: "Biasa Saja" });
+      await snapshot.ref.update({mood: "Biasa Saja"});
       return;
     }
 
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const result = await model.generateContent(
         SYSTEM_PROMPT_MOOD_ACCURATE(journal)
       );
-      let detected = result.response.text().trim();
+      const detected = result.response.text().trim();
 
       const valid = ["Sangat Baik", "Baik", "Biasa Saja", "Buruk", "Sangat Buruk"];
       const finalMood = valid.find((m) => detected.includes(m)) || "Biasa Saja";
@@ -221,7 +228,7 @@ export const detectAndSetMoodOnUpdate = onDocumentUpdated(
       });
     } catch (e: any) {
       logger.error("Mood update detection error:", e);
-      await snapshot.ref.update({ mood: "Biasa Saja" });
+      await snapshot.ref.update({mood: "Biasa Saja"});
     }
   }
 );
@@ -248,7 +255,7 @@ export const generateReflection = onDocumentCreated(
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await snapshot.ref.update({ reflection: "Error: AI Key hilang." });
+      await snapshot.ref.update({reflection: "Error: AI Key hilang."});
       return;
     }
 
@@ -259,7 +266,7 @@ export const generateReflection = onDocumentCreated(
     while (!text && retry < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
         const result = await model.generateContent(prompt);
         text = result.response.text().trim();
         break;
@@ -310,7 +317,7 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await snapshot.ref.update({ reflection: "Error: AI Key hilang." });
+      await snapshot.ref.update({reflection: "Error: AI Key hilang."});
       return;
     }
 
@@ -321,7 +328,7 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
     while (!text && retry < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
         const result = await model.generateContent(prompt);
         text = result.response.text().trim();
         break;
@@ -394,7 +401,7 @@ export const generateDailySummary = onDocumentCreated(
       if (!GEMINI_API_KEY) return;
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const result = await model.generateContent(prompt);
       const summary = result.response.text().trim();
 
@@ -410,7 +417,7 @@ export const generateDailySummary = onDocumentCreated(
             periodStart: sevenDaysAgo,
             entryCount: entriesSnap.size,
           },
-          { merge: true }
+          {merge: true}
         );
     } catch (e: any) {
       logger.error("Daily summary error:", e);
@@ -439,6 +446,12 @@ Gunakan bahasa Indonesia santai.
 
 type TimestampRange = { start: admin.firestore.Timestamp; end: admin.firestore.Timestamp };
 
+/**
+ * Membuat rentang waktu (awal dan akhir hari) berdasarkan tanggal yang diberikan.
+ *
+ * @param {string} dateString - String tanggal yang akan diproses.
+ * @return {TimestampRange} Objek berisi timestamp awal dan akhir hari.
+ */
 function getDateRange(dateString: string): TimestampRange {
   const date = new Date(dateString);
   date.setHours(0, 0, 0, 0);
@@ -446,7 +459,7 @@ function getDateRange(dateString: string): TimestampRange {
   const endOfDay = new Date(dateString);
   endOfDay.setHours(23, 59, 59, 999);
   const end = admin.firestore.Timestamp.fromDate(endOfDay);
-  return { start, end };
+  return {start, end};
 }
 
 export const getDailyReflection = onCall(
@@ -465,7 +478,7 @@ export const getDailyReflection = onCall(
     if (!GEMINI_API_KEY) throw new HttpsError("internal", "API Key hilang.");
 
     try {
-      const { start, end } = getDateRange(dateString);
+      const {start, end} = getDateRange(dateString);
       const entriesSnap = await db
         .collection("mood_entries")
         .where("userId", "==", userId)
@@ -486,7 +499,7 @@ export const getDailyReflection = onCall(
         .join("\n---\n");
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const result = await model.generateContent(SYSTEM_PROMPT_DAILY_REFLECTION(journals));
       const text = result.response.text().trim();
 
@@ -502,7 +515,7 @@ export const getDailyReflection = onCall(
         summary = journals.split("\n---\n").slice(0, 5).map((s) => s.substring(0, 120));
       }
 
-      return { summary, motivation };
+      return {summary, motivation};
     } catch (e: any) {
       logger.error("getDailyReflection error:", e);
       throw new HttpsError("internal", "Gagal proses AI.");
@@ -520,7 +533,7 @@ export const sendChatMessage = onCall(
     memory: "1GiB",
   },
   async (request) => {
-    const { userId, message, chatId } = request.data;
+    const {userId, message, chatId} = request.data;
     if (!userId || !message) throw new Error("Missing data");
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -552,7 +565,7 @@ export const sendChatMessage = onCall(
       });
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const summary = (await sessionRef.get()).data()?.summary || "Percakapan dimulai.";
       const recent = await sessionRef
         .collection("messages")
@@ -586,7 +599,7 @@ export const sendChatMessage = onCall(
         messageCount: admin.firestore.FieldValue.increment(1),
       });
 
-      return { reply, chatId: sessionRef.id };
+      return {reply, chatId: sessionRef.id};
     } catch (e: any) {
       logger.error("Chat error:", e);
       throw new Error("Gagal: " + e.message);
@@ -596,6 +609,13 @@ export const sendChatMessage = onCall(
 
 /* ======================= CLEANUP & ETC ======================= */
 
+/**
+ * Menghapus seluruh dokumen di dalam sebuah koleksi Firestore secara bertahap.
+ *
+ * @param {admin.firestore.CollectionReference} collectionRef - Referensi koleksi.
+ * @param {number} [batchSize=500] - Jumlah dokumen per batch (opsional, default 500).
+ * @return {Promise<void>} Promise yang selesai saat penghapusan tuntas.
+ */
 async function deleteCollection(
   collectionRef: admin.firestore.CollectionReference,
   batchSize = 500
@@ -609,7 +629,7 @@ async function deleteCollection(
 }
 
 export const cleanupChatMessages = onDocumentDeleted(
-  { document: "users/{userId}/chats/{chatId}", region: "asia-southeast2" },
+  {document: "users/{userId}/chats/{chatId}", region: "asia-southeast2"},
   async (event) => {
     const messagesRef = db
       .collection("users")

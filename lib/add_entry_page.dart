@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
 import 'home_page.dart';
 
 class AddEntryPage extends StatefulWidget {
@@ -15,8 +14,10 @@ class AddEntryPage extends StatefulWidget {
   State<AddEntryPage> createState() => _AddEntryPageState();
 }
 
-class _AddEntryPageState extends State<AddEntryPage> {
+class _AddEntryPageState extends State<AddEntryPage>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _journalController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   bool _isLoading = false;
   final DateTime _selectedDateTime = DateTime.now();
@@ -25,6 +26,19 @@ class _AddEntryPageState extends State<AddEntryPage> {
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   String _localeId = 'id_ID';
+
+  // Variabel Logic
+  String _textBeforeListening = '';
+  bool _isListeningSheetOpen = false;
+  Timer? _micWatchdog;
+
+  // Warna Tema
+  final Color _primaryBlue = const Color(0xFF3B82F6);
+  final Color _bgPage = const Color(0xFFF1F5F9);
+  final Color _bgPaper = const Color(0xFFFFFFFF);
+  final Color _textTitle = const Color(0xFF1E293B);
+  final Color _textBody = const Color(0xFF334155);
+  final Color _textHint = const Color(0xFF94A3B8);
 
   @override
   void initState() {
@@ -35,95 +49,180 @@ class _AddEntryPageState extends State<AddEntryPage> {
   @override
   void dispose() {
     _journalController.dispose();
-    _speechToText.stop();
+    _scrollController.dispose();
+    _micWatchdog?.cancel();
+    _speechToText.cancel();
     super.dispose();
   }
 
-  // ===================== SPEECH TO TEXT =====================
   void _initSpeech() async {
-    _speechEnabled = await _speechToText.initialize();
-    if (_speechEnabled) {
-      final locales = await _speechToText.locales();
-      final indo = locales.firstWhere(
-        (l) => l.localeId.contains('id'),
-        orElse: () => locales.first,
+    try {
+      _speechEnabled = await _speechToText.initialize(
+        onError: (val) {
+          debugPrint('Speech Error: $val');
+          // Tutup sheet jika error terjadi
+          _closeSheetSafe();
+        },
+        onStatus: (status) => debugPrint('Speech Status: $status'),
       );
-      _localeId = indo.localeId;
+
+      if (_speechEnabled) {
+        var locales = await _speechToText.locales();
+        var indo = locales.firstWhere(
+          (l) => l.localeId.toLowerCase().contains('id'),
+          orElse: () => locales.first,
+        );
+        _localeId = indo.localeId;
+      }
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint("Init Error: $e");
     }
-    if (mounted) setState(() {});
   }
 
-  void _startListening() async {
-    if (!_speechEnabled || _isLoading) return;
-    await _speechToText.listen(
-      onResult: (result) {
-        if (result.finalResult) {
-          _journalController.text = result.recognizedWords;
-          _journalController.selection = TextSelection.fromPosition(
-            TextPosition(offset: _journalController.text.length),
-          );
-        }
-      },
-      localeId: _localeId,
-      listenFor: const Duration(minutes: 1),
-    );
-    setState(() {});
+  void _closeSheetSafe() {
+    if (_isListeningSheetOpen && mounted) {
+      _isListeningSheetOpen = false;
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  void _startListening(BuildContext context) async {
+    if (!_speechEnabled || _isLoading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mic tidak siap. Coba keluar & masuk lagi.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _textBeforeListening = _journalController.text;
+      if (_textBeforeListening.isNotEmpty &&
+          !_textBeforeListening.endsWith(' ')) {
+        _textBeforeListening += ' ';
+      }
+    });
+
+    _isListeningSheetOpen = true;
+
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => const ListeningSheet(),
+    ).whenComplete(() {
+      _isListeningSheetOpen = false;
+      _stopListening();
+    });
+
+    try {
+      await _speechToText.listen(
+        localeId: _localeId,
+        listenFor: const Duration(minutes: 5),
+        pauseFor: const Duration(seconds: 30),
+        onResult: (result) {
+          setState(() {
+            _journalController.text =
+                _textBeforeListening + result.recognizedWords;
+            _journalController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _journalController.text.length),
+            );
+          });
+
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        },
+      );
+
+      // Watchdog untuk memantau status mic sistem
+      _micWatchdog?.cancel();
+      Future.delayed(const Duration(seconds: 1), () {
+        _micWatchdog = Timer.periodic(const Duration(milliseconds: 500), (
+          timer,
+        ) {
+          if (!mounted) {
+            timer.cancel();
+            return;
+          }
+          if (!_speechToText.isListening && _isListeningSheetOpen) {
+            timer.cancel();
+            _closeSheetSafe();
+          }
+        });
+      });
+    } catch (e) {
+      _closeSheetSafe();
+    }
   }
 
   void _stopListening() async {
+    _micWatchdog?.cancel();
     await _speechToText.stop();
-    setState(() {});
   }
 
-  // ===================== SIMPAN ENTRY + TUNGGU REFLEKSI =====================
   Future<void> _saveEntry() async {
     final journal = _journalController.text.trim();
     if (journal.isEmpty || journal.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ceritakan lebih banyak yuk')),
+        const SnackBar(
+          content: Text(
+            'Tulis sedikit lagi ya (min. 10 karakter)',
+            style: TextStyle(fontFamily: 'Poppins'),
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
 
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User tidak ditemukan')),
-      );
-      return;
-    }
+    if (user == null) return;
 
     setState(() => _isLoading = true);
 
     try {
-      // 1. Simpan entri dengan placeholder
-      final docRef = await FirebaseFirestore.instance.collection('mood_entries').add({
-        'userId': user.uid,
-        'mood': 'Menunggu AI...',
-        'journal': journal,
-        'timestamp': Timestamp.fromDate(_selectedDateTime),
-        'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
-        'reflection': null,
-      });
+      final docRef = await FirebaseFirestore.instance
+          .collection('mood_entries')
+          .add({
+            'userId': user.uid,
+            'mood': 'Menunggu AI...',
+            'journal': journal,
+            'timestamp': Timestamp.fromDate(_selectedDateTime),
+            'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
+            'reflection': null,
+          });
 
-      // 2. Tunggu refleksi AI (maks 30 detik)
-      String reflection = "Entri berhasil disimpan!\nRefleksi AI akan muncul sebentar lagi.";
+      String reflection =
+          "Entri berhasil disimpan!\nRefleksi AI akan muncul sebentar lagi.";
 
       try {
-        final snapshot = await docRef.snapshots().skipWhile((doc) {
-          final data = doc.data();
-          final refl = data?['reflection'] as String?;
-          return refl == null || refl.trim().isEmpty;
-        }).first.timeout(const Duration(seconds: 30));
+        final snapshot = await docRef
+            .snapshots()
+            .skipWhile((doc) {
+              final data = doc.data();
+              final refl = data?['reflection'] as String?;
+              return refl == null || refl.trim().isEmpty;
+            })
+            .first
+            .timeout(const Duration(seconds: 30));
 
         reflection = snapshot.get('reflection') as String;
       } on TimeoutException catch (_) {
-        // Timeout → tetap lanjut
       } catch (e) {
         debugPrint('Error waiting for reflection: $e');
       }
 
-      // 3. Navigasi ke Home
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
@@ -132,165 +231,395 @@ class _AddEntryPageState extends State<AddEntryPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menyimpan: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal menyimpan: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // ===================== UI =====================
   @override
   Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF3B82F6);
-    final String displayDateTime = DateFormat('EEEE, d MMM yyyy HH:mm', 'id_ID').format(_selectedDateTime);
+    final String dayNum = DateFormat('d').format(_selectedDateTime);
+    final String monthYear = DateFormat(
+      'MMM yyyy',
+      'id_ID',
+    ).format(_selectedDateTime);
+    final String dayName = DateFormat(
+      'EEEE',
+      'id_ID',
+    ).format(_selectedDateTime);
+    final String timeStr = DateFormat('HH:mm').format(_selectedDateTime);
 
     return Scaffold(
+      backgroundColor: _bgPage,
       appBar: AppBar(
-        title: const Text('Entri Baru'),
+        backgroundColor: _bgPage,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: _isLoading ? Colors.grey : Colors.black),
+          icon: const Icon(Icons.close_rounded),
+          color: _textTitle,
+          iconSize: 26,
+          tooltip: 'Batal',
           onPressed: _isLoading ? null : () => Navigator.pop(context),
         ),
+        centerTitle: true,
+        title: Text(
+          "Entri Baru",
+          style: TextStyle(
+            color: _textTitle,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.black12),
+                ),
+                child: Text(
+                  timeStr,
+                  style: TextStyle(
+                    color: _textTitle,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Tanggal & Waktu
-              Row(
-                children: [
-                  const Icon(Icons.access_time, color: Colors.grey, size: 18),
-                  const SizedBox(width: 6),
-                  Text(
-                    displayDateTime,
-                    style: const TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w500),
+      body: Column(
+        children: [
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              decoration: BoxDecoration(
+                color: _bgPaper,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    offset: const Offset(0, -4),
+                    blurRadius: 16,
                   ),
                 ],
               ),
-              const SizedBox(height: 25),
-
-              const Text(
-                'Bagaimana perasaanmu hari ini?',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 25),
-
-              // Info: AI akan tentukan mood otomatis
-              Center(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
                 child: Column(
                   children: [
-                    const SizedBox(height: 16),
-                    const Text(
-                      "AI akan otomatis menentukan moodmu\nsetelah kamu simpan",
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey,
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.grey.withOpacity(0.1),
+                            width: 1,
+                          ),
+                        ),
                       ),
-                      textAlign: TextAlign.center,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _primaryBlue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  dayNum,
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: _primaryBlue,
+                                    height: 1,
+                                    fontFamily: 'Poppins',
+                                  ),
+                                ),
+                                Text(
+                                  monthYear,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: _primaryBlue,
+                                    fontFamily: 'Poppins',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Apa cerita hari ini?",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: _textTitle,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                              Text(
+                                dayName,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: _textHint,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Berdasarkan isi jurnalmu",
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: TextField(
+                          controller: _journalController,
+                          enabled: !_isLoading,
+                          maxLines: null,
+                          minLines: 5,
+                          keyboardType: TextInputType.multiline,
+                          style: TextStyle(
+                            fontSize: 16,
+                            height: 1.8,
+                            color: _textBody,
+                            fontFamily: 'Poppins',
+                          ),
+                          decoration: InputDecoration(
+                            hintText:
+                                "Mulai menulis di sini...\n\nCeritakan apa yang kamu rasakan, kejadian menarik, atau hal yang kamu syukuri hari ini.",
+                            hintStyle: TextStyle(
+                              fontSize: 16,
+                              height: 1.8,
+                              color: Colors.grey.withOpacity(0.5),
+                              fontFamily: 'Poppins',
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 24,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
-
-              const Text(
-                'Ceritakan sedikit tentang harimu',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-
-              // Text field + mic
-              TextField(
-                controller: _journalController,
-                enabled: !_isLoading,
-                maxLines: 7,
-                decoration: InputDecoration(
-                  hintText: 'Tulis atau bicara di sini...',
-                  hintStyle: const TextStyle(color: Colors.grey),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: primaryBlue, width: 2),
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _speechToText.isListening ? Icons.mic : Icons.mic_none,
-                      color: _speechToText.isListening ? Colors.red : primaryBlue,
-                    ),
-                    onPressed: _speechEnabled && !_isLoading
-                        ? (_speechToText.isListening ? _stopListening : _startListening)
-                        : null,
-                  ),
-                ),
-              ),
-
-              // Indikator mic aktif
-              if (_speechToText.isListening)
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.red[200]!),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.mic, color: Colors.red, size: 18),
-                      SizedBox(width: 8),
-                      Text(
-                        'Sedang mendengarkan...',
-                        style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  ),
-                ),
-
-              const SizedBox(height: 40),
-
-              // Tombol Simpan
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _saveEntry,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryBlue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                    elevation: 3,
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                        )
-                      : const Text(
-                          'Simpan Entri',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                        ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: SafeArea(
+              top: false,
+              child: Row(
+                children: [
+                  // TOMBOL MIC (REVISI WARNA: BIRU MUDA NETRAL)
+                  GestureDetector(
+                    onTap: _speechEnabled && !_isLoading
+                        ? () => _startListening(context)
+                        : null,
+                    child: Container(
+                      height: 52,
+                      width: 52,
+                      decoration: BoxDecoration(
+                        color: _primaryBlue.withOpacity(0.1), // Biru Muda
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _primaryBlue.withOpacity(0.2),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.mic_rounded,
+                        color: _primaryBlue, // Ikon Biru
+                        size: 26,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _saveEntry,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primaryBlue,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  Text(
+                                    'Simpan Entri',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                      fontFamily: 'Poppins',
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.check_circle_rounded, size: 22),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ListeningSheet extends StatefulWidget {
+  const ListeningSheet({super.key});
+
+  @override
+  State<ListeningSheet> createState() => _ListeningSheetState();
+}
+
+class _ListeningSheetState extends State<ListeningSheet>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(
+      begin: 1.0,
+      end: 1.2,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ScaleTransition(
+            scale: _animation,
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.mic_rounded,
+                size: 48,
+                color: Colors.redAccent,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            "Saya Mendengarkan...",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Poppins',
+              color: Color(0xFF1E293B),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Jeda hingga 30 detik. Pop-up tertutup\notomatis saat mic mati.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF94A3B8),
+              fontFamily: 'Poppins',
+              height: 1.5,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF1F5F9),
+                foregroundColor: const Color(0xFF1E293B),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                "Selesai Bicara",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

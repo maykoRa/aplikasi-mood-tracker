@@ -3,7 +3,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'auth_wrapper.dart';
@@ -99,72 +98,322 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // Persona Selection Dialog
+  // --- FITUR BARU: PILIH PERSONA (UI LEBIH COMPACT) ---
   Future<void> _showPersonaSelectionDialog() async {
-    final selected = await showDialog<String>(
+    // Data Persona
+    final List<Map<String, dynamic>> personas = [
+      {
+        'id': 'friendly',
+        'title': 'Friendly',
+        'desc': 'Sahabat Ramah & Supportif',
+        'icon': Icons.sentiment_satisfied_alt_rounded,
+      },
+      {
+        'id': 'formal',
+        'title': 'Formal',
+        'desc': 'Professional & Terstruktur',
+        'icon': Icons.business_center_outlined,
+      },
+      {
+        'id': 'tough',
+        'title': 'Tough',
+        'desc': 'Tegas & Disiplin',
+        'icon': Icons.fitness_center_rounded,
+      },
+      {
+        'id': 'coach',
+        'title': 'Coach',
+        'desc': 'Motivator Energik',
+        'icon': Icons.flash_on_rounded,
+      },
+      {
+        'id': 'motherly',
+        'title': 'Motherly',
+        'desc': 'Keibuan & Mengayomi',
+        'icon': Icons.volunteer_activism_rounded,
+      },
+      {
+        'id': 'bestie',
+        'title': 'Bestie',
+        'desc': 'Bestie Gaul Santai',
+        'icon': Icons.star_border_rounded,
+      },
+    ];
+
+    String tempSelectedPersona = _currentPersona;
+    bool isSaving = false;
+
+    // Warna Tema
+    const Color primaryBlue = Color(0xFF3B82F6);
+    const Color lightBlueBg = Color(0xFFEFF6FF);
+
+    await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Pilih Persona AI'),
-        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _personaTile('formal', 'Formal', 'Professional & Formal'),
-            _personaTile('tough', 'Tough', 'Tegas & Disiplin (Tough Love)'),
-            _personaTile('friendly', 'Friendly', 'Sahabat Ramah & Supportif'),
-            _personaTile('coach', 'Coach', 'Motivator Energik'),
-            _personaTile('motherly', 'Motherly', 'Keibuan & Mengayomi'),
-            _personaTile('bestie', 'Bestie', 'Bestie Gaul Santai'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-        ],
-      ),
-    );
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(
+                  20,
+                ), // Radius sedikit dikurangi
+              ),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 20,
+                ), // Padding dikurangi
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 1. Header Icon (Lebih Kecil)
+                    Container(
+                      padding: const EdgeInsets.all(
+                        12,
+                      ), // Padding icon dikurangi
+                      decoration: const BoxDecoration(
+                        color: lightBlueBg,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.smart_toy_rounded,
+                        color: primaryBlue,
+                        size: 28, // Ukuran icon dikurangi
+                      ),
+                    ),
+                    const SizedBox(height: 12), // Jarak dikurangi
+                    // 2. Title & Subtitle
+                    const Text(
+                      'Pilih Karakter AI',
+                      style: TextStyle(
+                        fontSize: 18, // Font size dikurangi sedikit
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Tentukan gaya bicara AI saat merespons.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 16), // Jarak ke list dikurangi
+                    // 3. List Pilihan (Dibatasi Tingginya)
+                    Container(
+                      constraints: BoxConstraints(
+                        maxHeight:
+                            MediaQuery.of(context).size.height *
+                            0.35, // Batasi tinggi max 35% layar
+                      ),
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          children: personas.map((p) {
+                            final isSelected = tempSelectedPersona == p['id'];
+                            return GestureDetector(
+                              onTap: () {
+                                setStateDialog(
+                                  () => tempSelectedPersona = p['id'],
+                                );
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                margin: const EdgeInsets.only(
+                                  bottom: 8,
+                                ), // Margin antar item dikurangi
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ), // Padding item dikurangi
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? lightBlueBg
+                                      : Colors.white,
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? primaryBlue
+                                        : Colors.grey[200]!,
+                                    width: isSelected ? 1.5 : 1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Icon Persona
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.grey[100],
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        p['icon'],
+                                        size: 18,
+                                        color: isSelected
+                                            ? primaryBlue
+                                            : Colors.grey[600],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    // Text
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            p['title'],
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14,
+                                              color: isSelected
+                                                  ? primaryBlue
+                                                  : Colors.black87,
+                                            ),
+                                          ),
+                                          Text(
+                                            p['desc'],
+                                            style: TextStyle(
+                                              fontSize:
+                                                  11, // Font desc lebih kecil
+                                              color: isSelected
+                                                  ? primaryBlue.withOpacity(0.8)
+                                                  : Colors.grey[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Radio Indicator
+                                    if (isSelected)
+                                      const Icon(
+                                        Icons.check_circle_rounded,
+                                        color: primaryBlue,
+                                        size: 20,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-    if (selected != null && selected != _currentPersona) {
-      final userId = FirebaseAuth.instance.currentUser!.uid;
-      await FirebaseFirestore.instance.collection('users').doc(userId).set({
-        'aiPersona': selected,
-      }, SetOptions(merge: true));
+                    // 4. Action Buttons
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                if (tempSelectedPersona != _currentPersona) {
+                                  setStateDialog(() => isSaving = true);
 
-      setState(() => _currentPersona = selected);
+                                  // Simpan ke Firestore
+                                  final userId =
+                                      FirebaseAuth.instance.currentUser!.uid;
+                                  await FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(userId)
+                                      .set({
+                                        'aiPersona': tempSelectedPersona,
+                                      }, SetOptions(merge: true));
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Persona AI diubah jadi ${_getPersonaDisplayName(selected)}!',
-            ),
-            backgroundColor: Colors.green,
-          ),
+                                  // Update State Utama
+                                  setState(
+                                    () => _currentPersona = tempSelectedPersona,
+                                  );
+
+                                  if (mounted) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Karakter AI berubah menjadi ${_getPersonaDisplayName(tempSelectedPersona)}!',
+                                        ),
+                                        backgroundColor: Colors.green,
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  Navigator.pop(context);
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                          ), // Padding tombol dikurangi
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: isSaving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'Simpan',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: isSaving ? null : () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(50, 30),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'Batal',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
-      }
-    }
-  }
-
-  Widget _personaTile(String value, String title, String subtitle) {
-    final isSelected = _currentPersona == value;
-    return ListTile(
-      leading: Radio<String>(
-        value: value,
-        groupValue: _currentPersona,
-        onChanged: (val) => Navigator.pop(context, val),
-      ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 13)),
-      selected: isSelected,
-      selectedTileColor: Colors.blue.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onTap: () => Navigator.pop(context, value),
+      },
     );
   }
 
-  // Nama tampilan persona
+  // Nama tampilan persona (dipakai di halaman utama Profile)
   String _getPersonaDisplayName(String key) {
     const map = {
       'formal': 'Formal',
@@ -177,7 +426,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return map[key] ?? 'Friendly';
   }
 
-  // --- FITUR BARU: GANTI PASSWORD (PERMANTAP UI) ---
+  // --- FITUR: GANTI PASSWORD ---
   Future<void> _showChangePasswordDialog() async {
     final TextEditingController oldPassController = TextEditingController();
     final TextEditingController newPassController = TextEditingController();
@@ -195,7 +444,7 @@ class _ProfilePageState extends State<ProfilePage> {
     const Color lightBlueBg = Color(0xFFEFF6FF);
 
     // Helper untuk Input Decoration yang Rapi
-    InputDecoration _buildInputDecoration(
+    InputDecoration buildInputDecoration(
       String label,
       IconData icon,
       bool isObscure,
@@ -301,7 +550,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         TextFormField(
                           controller: oldPassController,
                           obscureText: obscureOld,
-                          decoration: _buildInputDecoration(
+                          decoration: buildInputDecoration(
                             'Password Lama',
                             Icons.lock_outline_rounded,
                             obscureOld,
@@ -315,7 +564,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         TextFormField(
                           controller: newPassController,
                           obscureText: obscureNew,
-                          decoration: _buildInputDecoration(
+                          decoration: buildInputDecoration(
                             'Password Baru',
                             Icons.vpn_key_outlined,
                             obscureNew,
@@ -329,7 +578,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         TextFormField(
                           controller: confirmPassController,
                           obscureText: obscureConfirm,
-                          decoration: _buildInputDecoration(
+                          decoration: buildInputDecoration(
                             'Ulangi Password Baru',
                             Icons.check_circle_outline_rounded,
                             obscureConfirm,
@@ -844,7 +1093,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // Helper Widgets (sama seperti sebelumnya)
+  // Helper Widgets
   Widget _buildSectionTitle(String title) => Padding(
     padding: const EdgeInsets.only(left: 5),
     child: Text(
@@ -953,7 +1202,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: const Color(0xFF3B82F6),
+            activeThumbColor: const Color(0xFF3B82F6),
           ),
         ],
       ),
