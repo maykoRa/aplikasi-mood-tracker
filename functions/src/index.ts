@@ -448,7 +448,7 @@ ${personaPrompts[persona]}
 Ini semua jurnal user 7 hari terakhir:
 ${journalsText}
 
-Berikan pesan singkat (maksimal 3 kalimat) sesuai gaya persona di atas. Langsung mulai pesan, tanpa pengantar.
+Berikan pesan singkat (maksimal 3 kalimat) sesuai gaya persona di atas. Total panjang teks TIDAK BOLEH lebih dari 350 karakter. Langsung mulai pesan, tanpa pengantar.
 `;
 
       const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -460,7 +460,9 @@ Berikan pesan singkat (maksimal 3 kalimat) sesuai gaya persona di atas. Langsung
       let recommendation = result.response.text().trim();
 
       // Fallback sesuai persona kalau AI ngaco
-      if (!recommendation || recommendation.length > 220) {
+      if (!recommendation || recommendation.length > 450) {
+        console.log("Fallback triggered. Length:", recommendation?.length);
+
         const fallback: Record<PersonaType, string> = {
           formal: "Minggu ini Anda mengalami fluktuasi emosi yang cukup signifikan. Mulailah hari dengan rutinitas pagi yang terstruktur untuk meningkatkan stabilitas.",
           tough: "Masih naik-turun emosinya. Besok bangun jam 5, olahraga, dan jangan buka HP sebelum jam 8. Titik.",
@@ -592,7 +594,7 @@ ${personaPrompts[newPersona]}
 Ini semua jurnal user 7 hari terakhir:
 ${journalsText}
 
-Berikan pesan singkat (maksimal 3 kalimat) sesuai gaya persona di atas. Langsung mulai pesan, tanpa pengantar.
+Berikan pesan singkat (maksimal 3 kalimat) sesuai gaya persona di atas. Total panjang teks TIDAK BOLEH lebih dari 350 karakter. Langsung mulai pesan, tanpa pengantar.
 `;
 
       const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -604,7 +606,7 @@ Berikan pesan singkat (maksimal 3 kalimat) sesuai gaya persona di atas. Langsung
       let recommendation = result.response.text().trim();
 
       // Fallback sesuai persona
-      if (!recommendation || recommendation.length > 220) {
+      if (!recommendation || recommendation.length > 450) {
         const fallback: Record<PersonaType, string> = {
           formal: "Minggu ini Anda mengalami fluktuasi emosi yang cukup signifikan. Mulailah hari dengan rutinitas pagi yang terstruktur untuk meningkatkan stabilitas.",
           tough: "Masih naik-turun emosinya. Besok bangun jam 5, olahraga, dan jangan buka HP sebelum jam 8. Titik.",
