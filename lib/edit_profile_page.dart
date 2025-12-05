@@ -16,6 +16,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
 
+  // Warna Tema (Konsisten dengan ProfilePage)
+  final Color _primaryBlue = const Color(0xFF3B82F6);
+  final Color _lightBlueBg = const Color(0xFFEFF6FF);
+
   bool _isLoading = false;
   final User? currentUser = FirebaseAuth.instance.currentUser;
 
@@ -167,70 +171,202 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  // Dialog password (dengan pesan yang disesuaikan)
+  // --- REVISI: Dialog Password Modern & Scrollable (Fix Overflow) ---
   Future<String?> _showPasswordDialog({required bool isChangingEmail}) async {
     final TextEditingController passwordDialogController =
         TextEditingController();
     final GlobalKey<FormState> dialogFormKey = GlobalKey<FormState>();
+    bool isObscure = true;
 
+    String dialogTitle = isChangingEmail
+        ? 'Konfirmasi Email'
+        : 'Simpan Perubahan';
     String dialogMessage = isChangingEmail
-        ? 'Untuk mengubah email, masukkan password Anda saat ini.'
-        : 'Untuk menyimpan perubahan, masukkan password Anda saat ini.';
+        ? 'Karena Anda mengubah email, kami memerlukan verifikasi password untuk keamanan.'
+        : 'Masukkan password Anda untuk menyimpan perubahan pada profil ini.';
+
+    // Helper untuk Input Decoration
+    InputDecoration buildInputDecoration(
+      String label,
+      IconData icon,
+      bool obscure,
+      VoidCallback onToggle,
+    ) {
+      return InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: Colors.grey[600], fontSize: 14),
+        filled: true,
+        fillColor: Colors.grey[50],
+        prefixIcon: Icon(icon, color: _primaryBlue.withOpacity(0.7), size: 22),
+        suffixIcon: IconButton(
+          icon: Icon(
+            obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+            color: Colors.grey[400],
+            size: 20,
+          ),
+          onPressed: onToggle,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[200]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: _primaryBlue, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+      );
+    }
 
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Verifikasi Keamanan'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(dialogMessage), // Pesan dinamis
-              const SizedBox(height: 15),
-              Form(
-                key: dialogFormKey,
-                child: TextFormField(
-                  controller: passwordDialogController,
-                  obscureText: true,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Password Anda',
-                    border: OutlineInputBorder(),
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              // FIX: SingleChildScrollView mencegah overflow saat keyboard muncul
+              child: SingleChildScrollView(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
-                  validator: (val) => val == null || val.isEmpty
-                      ? 'Password tidak boleh kosong'
-                      : null,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 1. Header Icon
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: _lightBlueBg,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.security_rounded,
+                          color: _primaryBlue,
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 2. Title
+                      Text(
+                        dialogTitle,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+
+                      // 3. Message
+                      Text(
+                        dialogMessage,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // 4. Form Input
+                      Form(
+                        key: dialogFormKey,
+                        child: TextFormField(
+                          controller: passwordDialogController,
+                          obscureText: isObscure,
+                          autofocus: true, // Keyboard muncul otomatis
+                          decoration: buildInputDecoration(
+                            'Password',
+                            Icons.lock_outline_rounded,
+                            isObscure,
+                            () => setStateDialog(() => isObscure = !isObscure),
+                          ),
+                          validator: (val) => val == null || val.isEmpty
+                              ? 'Password wajib diisi'
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // 5. Action Buttons (Vertical Layout)
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (dialogFormKey.currentState!.validate()) {
+                              Navigator.of(
+                                context,
+                              ).pop(passwordDialogController.text.trim());
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _primaryBlue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Konfirmasi',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(null),
+                        child: Text(
+                          'Batal',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(null),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (dialogFormKey.currentState!.validate()) {
-                  Navigator.of(
-                    context,
-                  ).pop(passwordDialogController.text.trim());
-                }
-              },
-              child: const Text('Konfirmasi'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
-  } // <-- INI ADALAH BRACE YANG HILANG (BARIS 236)
+  }
 
   @override
   Widget build(BuildContext context) {
-    // UI (build widget) tidak perlu diubah
-    const Color primaryBlue = Color(0xFF3B82F6);
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -239,33 +375,50 @@ class _EditProfilePageState extends State<EditProfilePage> {
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
-        elevation: 1,
+        elevation: 0, // Hilangkan shadow agar lebih clean
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 30.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
         children: [
           Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Input Nama
                 TextFormField(
                   controller: _nameController,
                   enabled: !_isLoading,
                   decoration: InputDecoration(
                     labelText: 'Nama Lengkap',
-                    hintText: 'Masukkan nama lengkap Anda',
-                    prefixIcon: const Icon(Icons.person_outline),
+                    hintText: 'Masukkan nama Anda',
+                    prefixIcon: Icon(
+                      Icons.person_outline_rounded,
+                      color: _primaryBlue.withOpacity(0.7),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[50],
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey[200]!),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.0),
-                      borderSide: const BorderSide(
-                        color: primaryBlue,
-                        width: 2.0,
-                      ),
+                      borderSide: BorderSide(color: _primaryBlue, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
                     ),
                   ),
                   validator: (value) {
@@ -275,22 +428,35 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 15),
+                const SizedBox(height: 20),
+
+                // Input Email
                 TextFormField(
                   controller: _emailController,
                   enabled: !_isLoading,
                   decoration: InputDecoration(
                     labelText: 'Email',
-                    prefixIcon: const Icon(Icons.email_outlined),
+                    prefixIcon: Icon(
+                      Icons.email_outlined,
+                      color: _primaryBlue.withOpacity(0.7),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[50],
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey[200]!),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.0),
-                      borderSide: const BorderSide(
-                        color: primaryBlue,
-                        width: 2.0,
-                      ),
+                      borderSide: BorderSide(color: _primaryBlue, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
                     ),
                   ),
                   keyboardType: TextInputType.emailAddress,
@@ -302,14 +468,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   },
                 ),
                 const SizedBox(height: 40),
+
+                // Tombol Simpan
                 ElevatedButton(
                   onPressed: _isLoading ? null : _updateProfile,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryBlue,
+                    backgroundColor: _primaryBlue,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12.0),
                     ),
+                    elevation: 0,
                   ),
                   child: _isLoading
                       ? const SizedBox(
@@ -317,7 +487,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           width: 20,
                           child: CircularProgressIndicator(
                             color: Colors.white,
-                            strokeWidth: 3,
+                            strokeWidth: 2.5,
                           ),
                         )
                       : const Text(
@@ -325,7 +495,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
                           ),
                         ),
                 ),

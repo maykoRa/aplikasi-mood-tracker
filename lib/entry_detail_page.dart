@@ -54,27 +54,139 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
     }
   }
 
+  // --- REVISI: Pop-up Hapus Entri Minimalis & Rapi ---
   Future<void> _deleteEntry(BuildContext context) async {
+    // Definisi Warna Tema untuk Aksi Hapus (Bahaya)
+    const Color dangerRed = Color(0xFFFF4D4F);
+    const Color lightRedBg = Color(0xFFFFF1F0);
+
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Konfirmasi Hapus'),
-        content: const Text('Apakah Anda yakin ingin menghapus entri ini?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Batal'),
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Hapus'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. Icon Header (Lingkaran Merah Muda)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: lightRedBg,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.delete_forever_rounded, // Icon tong sampah
+                  color: dangerRed,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 2. Title
+              const Text(
+                'Hapus Entri?',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+
+              // 3. Description
+              Text(
+                'Entri ini akan dihapus secara permanen dan tidak dapat dikembalikan.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 4. Action Buttons (Simetris)
+              Row(
+                children: [
+                  // Tombol Batal
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Batal',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Tombol Hapus
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: dangerRed,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Hapus',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
 
     if (confirmed == true) {
+      // Tampilkan loading dialog sederhana saat proses hapus berjalan
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(color: Colors.redAccent),
+          ),
+        );
+      }
+
       try {
         await FirebaseFirestore.instance
             .collection('mood_entries')
@@ -82,6 +194,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
             .delete();
 
         if (mounted) {
+          // Tutup loading dialog dan pindah ke home
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (context) =>
@@ -92,6 +205,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
         }
       } catch (e) {
         if (mounted) {
+          Navigator.pop(context); // Tutup loading dialog jika error
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
           );

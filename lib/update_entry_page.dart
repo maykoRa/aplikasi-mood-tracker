@@ -27,7 +27,10 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
     with SingleTickerProviderStateMixin {
   late TextEditingController _journalController;
   final ScrollController _scrollController = ScrollController();
+
+  // Tanggal sekarang statis (tidak bisa diubah)
   late DateTime _selectedDateTime;
+
   bool _isLoading = false;
 
   // Speech to Text
@@ -40,18 +43,19 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
   bool _isListeningSheetOpen = false;
   Timer? _micWatchdog;
 
-  // Warna Tema
+  // Warna Tema (Tetap Sama)
   final Color _primaryBlue = const Color(0xFF3B82F6);
   final Color _bgPage = const Color(0xFFF1F5F9);
   final Color _bgPaper = const Color(0xFFFFFFFF);
   final Color _textTitle = const Color(0xFF1E293B);
   final Color _textBody = const Color(0xFF334155);
-  final Color _textHint = const Color(0xFF94A3B8);
+  // final Color _textHint = const Color(0xFF94A3B8); // Tidak dipakai lagi karena teks hint dihapus
 
   @override
   void initState() {
     super.initState();
     _journalController = TextEditingController(text: widget.currentJournal);
+    // Inisialisasi tanggal dari data yang dikirim (tidak akan diubah)
     _selectedDateTime = widget.currentTimestamp;
     _initSpeech();
   }
@@ -126,7 +130,7 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
       builder: (ctx) => const ListeningSheet(),
     ).whenComplete(() {
       _isListeningSheetOpen = false;
-      _stopListening(); // PERBAIKAN: Memanggil fungsi _stopListening di sini
+      _stopListening();
     });
 
     try {
@@ -178,66 +182,6 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
     await _speechToText.stop();
   }
 
-  // --- LOGIKA DATE & TIME PICKER ---
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDateTime,
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
-      locale: const Locale('id', 'ID'),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: ColorScheme.light(primary: _primaryBlue),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      final newDate = DateTime(
-        picked.year,
-        picked.month,
-        picked.day,
-        _selectedDateTime.hour,
-        _selectedDateTime.minute,
-      );
-      setState(() => _selectedDateTime = newDate);
-    }
-  }
-
-  Future<void> _selectTime(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: ColorScheme.light(primary: _primaryBlue),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      final newTime = DateTime(
-        _selectedDateTime.year,
-        _selectedDateTime.month,
-        _selectedDateTime.day,
-        picked.hour,
-        picked.minute,
-      );
-      setState(() => _selectedDateTime = newTime);
-    }
-  }
-
-  Future<void> _handleDateEdit() async {
-    if (_isLoading) return;
-    await _selectDate(context);
-    if (mounted) await _selectTime(context);
-  }
-
   // --- UPDATE ENTRY ---
   Future<void> _updateEntry() async {
     final newJournal = _journalController.text.trim();
@@ -261,8 +205,7 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
 
       final Map<String, dynamic> updateData = {
         'journal': newJournal,
-        'timestamp': Timestamp.fromDate(_selectedDateTime),
-        'date': DateFormat('yyyy-MM-dd').format(_selectedDateTime),
+        // Timestamp tidak diubah karena read-only
       };
 
       // Reset mood jika jurnal berubah
@@ -345,37 +288,23 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Center(
-              child: GestureDetector(
-                onTap: _handleDateEdit,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.black12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.edit_calendar_rounded,
-                        size: 14,
-                        color: _textTitle,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        timeStr,
-                        style: TextStyle(
-                          color: _textTitle,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ],
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.black12),
+                ),
+                child: Text(
+                  timeStr,
+                  style: TextStyle(
+                    color: _textTitle,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Poppins',
                   ),
                 ),
               ),
@@ -408,77 +337,66 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
                 ),
                 child: Column(
                   children: [
-                    // Header Tanggal (Klik untuk edit)
-                    InkWell(
-                      onTap: _handleDateEdit,
-                      child: Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: Colors.grey.withOpacity(0.1),
-                              width: 1,
-                            ),
+                    // Header Tanggal (READ ONLY - Tidak ada InkWell/OnTap)
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.grey.withOpacity(0.1),
+                            width: 1,
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: _primaryBlue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    dayNum,
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: _primaryBlue,
-                                      height: 1,
-                                      fontFamily: 'Poppins',
-                                    ),
-                                  ),
-                                  Text(
-                                    monthYear,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: _primaryBlue,
-                                      fontFamily: 'Poppins',
-                                    ),
-                                  ),
-                                ],
-                              ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _primaryBlue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            const SizedBox(width: 16),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Column(
                               children: [
                                 Text(
-                                  dayName,
+                                  dayNum,
                                   style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: _textTitle,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: _primaryBlue,
+                                    height: 1,
                                     fontFamily: 'Poppins',
                                   ),
                                 ),
-                                const SizedBox(height: 4),
                                 Text(
-                                  "Ketuk untuk ubah tanggal",
+                                  monthYear,
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    color: _textHint,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: _primaryBlue,
                                     fontFamily: 'Poppins',
                                   ),
                                 ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 16),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                dayName,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: _textTitle,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                              // Subtitle "Ketuk untuk ubah" dihapus agar terlihat read-only
+                            ],
+                          ),
+                        ],
                       ),
                     ),
 

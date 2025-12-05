@@ -4,10 +4,10 @@ import {
   onDocumentUpdated,
   onDocumentDeleted,
 } from "firebase-functions/v2/firestore";
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as functionsV1 from "firebase-functions/v1";
 import * as admin from "firebase-admin";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import {GoogleGenerativeAI} from "@google/generative-ai";
 import * as logger from "firebase-functions/logger";
 
 admin.initializeApp();
@@ -129,19 +129,19 @@ export const detectAndSetMood = onDocumentCreated(
 
     const journal = data.journal as string;
     if (journal.trim().length < 10) {
-      await snapshot.ref.update({ mood: "Biasa Saja" });
+      await snapshot.ref.update({mood: "Biasa Saja"});
       return;
     }
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await snapshot.ref.update({ mood: "Biasa Saja" });
+      await snapshot.ref.update({mood: "Biasa Saja"});
       return;
     }
 
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const result = await model.generateContent(
         SYSTEM_PROMPT_MOOD_ACCURATE(journal)
       );
@@ -162,7 +162,7 @@ export const detectAndSetMood = onDocumentCreated(
       });
     } catch (e: any) {
       logger.error("Mood detection error:", e);
-      await snapshot.ref.update({ mood: "Biasa Saja" });
+      await snapshot.ref.update({mood: "Biasa Saja"});
     }
   }
 );
@@ -188,20 +188,20 @@ export const detectAndSetMoodOnUpdate = onDocumentUpdated(
     if (!moodReset && !journalChanged) return;
 
     if (!after.journal || after.journal.trim().length < 10) {
-      await snapshot.ref.update({ mood: "Biasa Saja" });
+      await snapshot.ref.update({mood: "Biasa Saja"});
       return;
     }
 
     const journal = after.journal as string;
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await snapshot.ref.update({ mood: "Biasa Saja" });
+      await snapshot.ref.update({mood: "Biasa Saja"});
       return;
     }
 
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const result = await model.generateContent(
         SYSTEM_PROMPT_MOOD_ACCURATE(journal)
       );
@@ -222,7 +222,7 @@ export const detectAndSetMoodOnUpdate = onDocumentUpdated(
       });
     } catch (e: any) {
       logger.error("Mood update detection error:", e);
-      await snapshot.ref.update({ mood: "Biasa Saja" });
+      await snapshot.ref.update({mood: "Biasa Saja"});
     }
   }
 );
@@ -242,15 +242,16 @@ export const generateReflection = onDocumentCreated(
     const snapshot = event.data;
     if (!snapshot) return;
     const data = snapshot.data();
-    if (!data?.mood || !data?.journal || !data?.userId || data.reflection)
+    if (!data?.mood || !data?.journal || !data?.userId || data.reflection) {
       return;
+    }
 
     const persona = await getUserPersona(data.userId);
     const prompt = PERSONA_PROMPTS_REFLECTION[persona](data.mood, data.journal);
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await snapshot.ref.update({ reflection: "Error: AI Key hilang." });
+      await snapshot.ref.update({reflection: "Error: AI Key hilang."});
       return;
     }
 
@@ -261,7 +262,7 @@ export const generateReflection = onDocumentCreated(
     while (!text && retry < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
         const result = await model.generateContent(prompt);
         text = result.response.text().trim();
         break;
@@ -315,7 +316,7 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      await snapshot.ref.update({ reflection: "Error: AI Key hilang." });
+      await snapshot.ref.update({reflection: "Error: AI Key hilang."});
       return;
     }
 
@@ -326,7 +327,7 @@ export const regenerateReflectionOnUpdate = onDocumentUpdated(
     while (!text && retry < maxRetries) {
       try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
         const result = await model.generateContent(prompt);
         text = result.response.text().trim();
         break;
@@ -406,7 +407,7 @@ export const generateDailySummary = onDocumentCreated(
               recommendation: shortMsgByPersona[persona],
               generatedAt: admin.firestore.FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            {merge: true}
           );
         return;
       }
@@ -428,17 +429,17 @@ export const generateDailySummary = onDocumentCreated(
 
       // 4. Prompt khusus per persona
       const personaPrompts: Record<PersonaType, string> = {
-        formal: `Anda adalah konsultan profesional. Rangkum pola emosi 7 hari ini secara objektif dalam 2 kalimat, lalu berikan 1 saran singkat yang actionable. Gunakan bahasa baku dan panggil "Anda". Maksimal 3 kalimat total.`,
+        formal: "Anda adalah konsultan profesional. Rangkum pola emosi 7 hari ini secara objektif dalam 2 kalimat, lalu berikan 1 saran singkat yang actionable. Gunakan bahasa baku dan panggil \"Anda\". Maksimal 3 kalimat total.",
 
-        tough: `Kamu mentor keras. Bilang apa adanya pola emosinya minggu ini, terus kasih 1 perintah tegas yang harus dilakukan mulai hari ini. Maksimal 2–3 kalimat, tanpa basa-basi.`,
+        tough: "Kamu mentor keras. Bilang apa adanya pola emosinya minggu ini, terus kasih 1 perintah tegas yang harus dilakukan mulai hari ini. Maksimal 2–3 kalimat, tanpa basa-basi.",
 
-        friendly: `Kamu sahabat dekat yang hangat. Bilang kamu ngerti banget perjalanannya minggu ini, kasih dukungan, lalu saranin 1 hal kecil yang bisa dilakukan hari ini. Boleh pakai "sayang", "aku ada buat kamu".`,
+        friendly: "Kamu sahabat dekat yang hangat. Bilang kamu ngerti banget perjalanannya minggu ini, kasih dukungan, lalu saranin 1 hal kecil yang bisa dilakukan hari ini. Boleh pakai \"sayang\", \"aku ada buat kamu\".",
 
-        coach: `Kamu life coach penuh energi! Bilang "Minggu ini kamu udah..." lalu puji pencapaiannya, terus kasih 1 tantangan kecil buat hari ini dengan semangat tinggi: "Gaspol!", "Come on!", "Kamu bisa!".`,
+        coach: "Kamu life coach penuh energi! Bilang \"Minggu ini kamu udah...\" lalu puji pencapaiannya, terus kasih 1 tantangan kecil buat hari ini dengan semangat tinggi: \"Gaspol!\", \"Come on!\", \"Kamu bisa!\".",
 
-        motherly: `Kamu mama yang penuh kasih. Panggil "nak" atau "sayang", bilang mama lihat perjuangannya, terus kasih 1 nasihat lembut tapi tegas untuk hari ini.`,
+        motherly: "Kamu mama yang penuh kasih. Panggil \"nak\" atau \"sayang\", bilang mama lihat perjuangannya, terus kasih 1 nasihat lembut tapi tegas untuk hari ini.",
 
-        bestie: `Kamu bestie gaul abis. Pakai bahasa anak Jaksel, santai, relate banget. Bilang "gila lu minggu ini...", terus kasih saran santai tapi ngena. Maksimal 3 kalimat.`,
+        bestie: "Kamu bestie gaul abis. Pakai bahasa anak Jaksel, santai, relate banget. Bilang \"gila lu minggu ini...\", terus kasih saran santai tapi ngena. Maksimal 3 kalimat.",
       };
 
       const PROMPT = `
@@ -454,7 +455,7 @@ Berikan pesan singkat (maksimal 3 kalimat) sesuai gaya persona di atas. Langsung
       if (!GEMINI_API_KEY) return;
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const result = await model.generateContent(PROMPT);
       let recommendation = result.response.text().trim();
 
@@ -483,9 +484,8 @@ Berikan pesan singkat (maksimal 3 kalimat) sesuai gaya persona di atas. Langsung
             generatedAt: admin.firestore.FieldValue.serverTimestamp(),
             entryCount: entriesSnap.size,
           },
-          { merge: true }
+          {merge: true}
         );
-
     } catch (error: any) {
       logger.error("generateDailySummary error:", error);
     }
@@ -551,7 +551,7 @@ export const updateSummaryOnPersonaChange = onDocumentUpdated(
               recommendation: shortMsgByPersona[newPersona],
               generatedAt: admin.firestore.FieldValue.serverTimestamp(),
             },
-            { merge: true }
+            {merge: true}
           );
         return;
       }
@@ -573,17 +573,17 @@ export const updateSummaryOnPersonaChange = onDocumentUpdated(
 
       // Prompt sesuai persona baru
       const personaPrompts: Record<PersonaType, string> = {
-        formal: `Anda adalah konsultan profesional. Rangkum pola emosi 7 hari ini secara objektif dalam 2 kalimat, lalu berikan 1 saran singkat yang actionable. Gunakan bahasa baku dan panggil "Anda". Maksimal 3 kalimat total.`,
+        formal: "Anda adalah konsultan profesional. Rangkum pola emosi 7 hari ini secara objektif dalam 2 kalimat, lalu berikan 1 saran singkat yang actionable. Gunakan bahasa baku dan panggil \"Anda\". Maksimal 3 kalimat total.",
 
-        tough: `Kamu mentor keras. Bilang apa adanya pola emosinya minggu ini, terus kasih 1 perintah tegas yang harus dilakukan mulai hari ini. Maksimal 2–3 kalimat, tanpa basa-basi.`,
+        tough: "Kamu mentor keras. Bilang apa adanya pola emosinya minggu ini, terus kasih 1 perintah tegas yang harus dilakukan mulai hari ini. Maksimal 2–3 kalimat, tanpa basa-basi.",
 
-        friendly: `Kamu sahabat dekat yang hangat. Bilang kamu ngerti banget perjalanannya minggu ini, kasih dukungan, lalu saranin 1 hal kecil yang bisa dilakukan hari ini. Boleh pakai "sayang", "aku ada buat kamu".`,
+        friendly: "Kamu sahabat dekat yang hangat. Bilang kamu ngerti banget perjalanannya minggu ini, kasih dukungan, lalu saranin 1 hal kecil yang bisa dilakukan hari ini. Boleh pakai \"sayang\", \"aku ada buat kamu\".",
 
-        coach: `Kamu life coach penuh energi! Bilang "Minggu ini kamu udah..." lalu puji pencapaiannya, terus kasih 1 tantangan kecil buat hari ini dengan semangat tinggi: "Gaspol!", "Come on!", "Kamu bisa!".`,
+        coach: "Kamu life coach penuh energi! Bilang \"Minggu ini kamu udah...\" lalu puji pencapaiannya, terus kasih 1 tantangan kecil buat hari ini dengan semangat tinggi: \"Gaspol!\", \"Come on!\", \"Kamu bisa!\".",
 
-        motherly: `Kamu mama yang penuh kasih. Panggil "nak" atau "sayang", bilang mama lihat perjuangannya, terus kasih 1 nasihat lembut tapi tegas untuk hari ini.`,
+        motherly: "Kamu mama yang penuh kasih. Panggil \"nak\" atau \"sayang\", bilang mama lihat perjuangannya, terus kasih 1 nasihat lembut tapi tegas untuk hari ini.",
 
-        bestie: `Kamu bestie gaul abis. Pakai bahasa anak Jaksel, santai, relate banget. Bilang "gila lu minggu ini...", terus kasih saran santai tapi ngena. Maksimal 3 kalimat.`,
+        bestie: "Kamu bestie gaul abis. Pakai bahasa anak Jaksel, santai, relate banget. Bilang \"gila lu minggu ini...\", terus kasih saran santai tapi ngena. Maksimal 3 kalimat.",
       };
 
       const PROMPT = `
@@ -599,7 +599,7 @@ Berikan pesan singkat (maksimal 3 kalimat) sesuai gaya persona di atas. Langsung
       if (!GEMINI_API_KEY) return;
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const result = await model.generateContent(PROMPT);
       let recommendation = result.response.text().trim();
 
@@ -628,11 +628,10 @@ Berikan pesan singkat (maksimal 3 kalimat) sesuai gaya persona di atas. Langsung
             generatedAt: admin.firestore.FieldValue.serverTimestamp(),
             entryCount: entriesSnap.size,
           },
-          { merge: true }
+          {merge: true}
         );
 
       logger.info(`Summary berhasil diupdate otomatis untuk user ${userId} dengan persona ${newPersona}`);
-
     } catch (error: any) {
       logger.error("Error update summary on persona change:", error);
     }
@@ -676,7 +675,7 @@ function getDateRange(dateString: string): TimestampRange {
   const endOfDay = new Date(dateString);
   endOfDay.setHours(23, 59, 59, 999);
   const end = admin.firestore.Timestamp.fromDate(endOfDay);
-  return { start, end };
+  return {start, end};
 }
 
 export const getDailyReflection = onCall(
@@ -689,14 +688,15 @@ export const getDailyReflection = onCall(
   async (request) => {
     const userId = request.auth?.uid;
     const dateString = request.data.date as string;
-    if (!userId || !dateString)
+    if (!userId || !dateString) {
       throw new HttpsError("invalid-argument", "Data tidak lengkap.");
+    }
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) throw new HttpsError("internal", "API Key hilang.");
 
     try {
-      const { start, end } = getDateRange(dateString);
+      const {start, end} = getDateRange(dateString);
       const entriesSnap = await db
         .collection("mood_entries")
         .where("userId", "==", userId)
@@ -717,7 +717,7 @@ export const getDailyReflection = onCall(
         .join("\n---\n");
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const result = await model.generateContent(
         SYSTEM_PROMPT_DAILY_REFLECTION(journals)
       );
@@ -738,7 +738,7 @@ export const getDailyReflection = onCall(
           .map((s) => s.substring(0, 120));
       }
 
-      return { summary, motivation };
+      return {summary, motivation};
     } catch (e: any) {
       logger.error("getDailyReflection error:", e);
       throw new HttpsError("internal", "Gagal proses AI.");
@@ -795,9 +795,10 @@ export const sendChatMessage = onCall(
     memory: "1GiB",
   },
   async (request) => {
-    const { userId, message, chatId } = request.data;
-    if (!userId || !message)
+    const {userId, message, chatId} = request.data;
+    if (!userId || !message) {
       throw new HttpsError("invalid-argument", "Missing data");
+    }
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) throw new HttpsError("internal", "API Key missing");
@@ -814,8 +815,9 @@ export const sendChatMessage = onCall(
           .doc(userId)
           .collection("chats")
           .doc(chatId);
-        if (!(await sessionRef.get()).exists)
+        if (!(await sessionRef.get()).exists) {
           throw new HttpsError("not-found", "Chat not found");
+        }
       } else {
         sessionRef = db
           .collection("users")
@@ -883,7 +885,7 @@ Balas sesuai persona di atas. Maksimal 3 kalimat. JANGAN ulangi konteks atau mem
 
       // === 5. Generate respons dari Gemini ===
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
       const result = await model.generateContent(finalPrompt);
       let reply = result.response.text().trim();
 
@@ -902,7 +904,7 @@ Balas sesuai persona di atas. Maksimal 3 kalimat. JANGAN ulangi konteks atau mem
         messageCount: admin.firestore.FieldValue.increment(1),
       });
 
-      return { reply, chatId: sessionRef.id };
+      return {reply, chatId: sessionRef.id};
     } catch (e: any) {
       logger.error("Chat error:", e);
       throw new HttpsError("internal", "Gagal mengirim pesan: " + e.message);
@@ -932,7 +934,7 @@ async function deleteCollection(
 }
 
 export const cleanupChatMessages = onDocumentDeleted(
-  { document: "users/{userId}/chats/{chatId}", region: "asia-southeast2" },
+  {document: "users/{userId}/chats/{chatId}", region: "asia-southeast2"},
   async (event) => {
     const messagesRef = db
       .collection("users")
