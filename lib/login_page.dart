@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Import Font Awesome
 import 'register_page.dart';
 import 'home_page.dart';
+import 'forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -235,7 +236,41 @@ class _LoginPageState extends State<LoginPage> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 35),
+                        const SizedBox(height: 8),
+
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const ForgotPasswordPage(),
+                                ),
+                              );
+                            },
+                            // Style ini untuk menghapus padding bawaan tombol agar lebih rapat
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(50, 30),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              alignment: Alignment.centerRight,
+                            ),
+                            child: const Text(
+                              'Forgot Password?',
+                              style: TextStyle(
+                                color: secondaryBlue,
+                                fontWeight: FontWeight.w600,
+                                fontSize:
+                                    13, // Ukuran font sedikit diperkecil agar proporsional
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Jarak ke tombol Sign In dikurangi (sebelumnya 20 atau 35)
+                        const SizedBox(height: 20),
 
                         ElevatedButton(
                           onPressed: _isLoading ? null : _handleSignIn,

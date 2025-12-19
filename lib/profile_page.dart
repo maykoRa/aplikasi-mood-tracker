@@ -603,8 +603,9 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           ),
                           validator: (val) {
-                            if (val != newPassController.text)
+                            if (val != newPassController.text) {
                               return 'Password tidak sama';
+                            }
                             return null;
                           },
                         ),
@@ -649,9 +650,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                       } on FirebaseAuthException catch (e) {
                                         String errorMsg =
                                             'Gagal mengubah password.';
-                                        if (e.code == 'wrong-password')
+                                        if (e.code == 'wrong-password') {
                                           errorMsg = 'Password lama salah.';
-                                        else if (e.code == 'weak-password')
+                                        } else if (e.code == 'weak-password')
                                           errorMsg =
                                               'Password baru terlalu lemah.';
                                         ScaffoldMessenger.of(
@@ -664,10 +665,11 @@ class _ProfilePageState extends State<ProfilePage> {
                                         );
                                       } finally {
                                         if (mounted &&
-                                            Navigator.canPop(context))
+                                            Navigator.canPop(context)) {
                                           setStateDialog(
                                             () => isLoading = false,
                                           );
+                                        }
                                       }
                                     }
                                   },
@@ -768,13 +770,13 @@ class _ProfilePageState extends State<ProfilePage> {
                 dialHandColor: _primaryBlue,
                 dialBackgroundColor: _lightBlueBg,
                 hourMinuteShape: const CircleBorder(),
-                hourMinuteColor: MaterialStateColor.resolveWith(
-                  (states) => states.contains(MaterialState.selected)
+                hourMinuteColor: WidgetStateColor.resolveWith(
+                  (states) => states.contains(WidgetState.selected)
                       ? _primaryBlue
                       : _lightBlueBg,
                 ),
-                hourMinuteTextColor: MaterialStateColor.resolveWith(
-                  (states) => states.contains(MaterialState.selected)
+                hourMinuteTextColor: WidgetStateColor.resolveWith(
+                  (states) => states.contains(WidgetState.selected)
                       ? Colors.white
                       : _primaryBlue,
                 ),
@@ -1023,12 +1025,14 @@ class _ProfilePageState extends State<ProfilePage> {
       } on FirebaseAuthException catch (e) {
         if (mounted) Navigator.of(context).pop();
         String message = 'Gagal menghapus akun.';
-        if (e.code == 'requires-recent-login')
+        if (e.code == 'requires-recent-login') {
           message = 'Silakan login ulang sebelum menghapus akun.';
-        if (mounted)
+        }
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(message), backgroundColor: Colors.red),
           );
+        }
       } catch (e) {
         if (mounted) {
           Navigator.of(context).pop();
@@ -1306,7 +1310,11 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ),
-          Switch(value: value, onChanged: onChanged, activeColor: _primaryBlue),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: _primaryBlue,
+          ),
         ],
       ),
     );
