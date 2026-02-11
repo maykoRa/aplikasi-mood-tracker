@@ -1,5 +1,3 @@
-// lib/forgot_password_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -34,14 +32,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       );
 
       if (mounted) {
-        // Tampilkan pesan sukses
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Link reset password telah dikirim ke email Anda.'),
             backgroundColor: Colors.green,
           ),
         );
-        // Opsional: Kembali ke halaman login setelah sukses
         Navigator.pop(context);
       }
     } on FirebaseAuthException catch (e) {
@@ -74,7 +70,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Menggunakan palet warna yang sama dengan Login Page
     const Color primaryBlue = Color(0xFF3B82F6);
     const Color lightBlueOutline = Color(0xFFADD8E6);
     const Color hintTextColor = Colors.grey;

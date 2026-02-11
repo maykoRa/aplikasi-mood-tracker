@@ -17,13 +17,10 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _navigateToAuthWrapper() async {
-    // Beri jeda singkat, misal 1 detik (sesuaikan durasinya)
     await Future.delayed(const Duration(seconds: 1));
 
-    // Pastikan widget masih ada sebelum navigasi
     if (mounted) {
       Navigator.of(context).pushReplacement(
-        // Navigasi ke AuthWrapper setelah delay
         MaterialPageRoute(builder: (context) => const AuthWrapper()),
       );
     }

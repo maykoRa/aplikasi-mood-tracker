@@ -1,4 +1,3 @@
-// lib/history_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,12 +24,10 @@ class _HistoryPageState extends State<HistoryPage> {
     _selectedDay = _focusedDay;
   }
 
-  // Format tanggal untuk key (hanya tanggal, tanpa waktu)
   DateTime _normalizeDate(DateTime date) {
     return DateTime(date.year, date.month, date.day);
   }
 
-  // Ambil entri dari Firestore
   Stream<QuerySnapshot> _getEntriesStream() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return const Stream.empty();
@@ -44,7 +41,6 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Warna tema (konsisten dengan halaman lain)
     const Color primaryBlue = Color(0xFF3B82F6);
 
     return Scaffold(
@@ -70,12 +66,9 @@ class _HistoryPageState extends State<HistoryPage> {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
 
-          // Jika data kosong, tetap tampilkan kalender (opsional),
-          // atau tampilkan empty state. Di sini kita handle data events.
           final docs = snapshot.data?.docs ?? [];
 
           _events.clear();
-          // Kelompokkan entri per tanggal
           for (var doc in docs) {
             final data = doc.data() as Map<String, dynamic>;
             final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
@@ -92,19 +85,16 @@ class _HistoryPageState extends State<HistoryPage> {
 
           return Column(
             children: [
-              // === KALENDER YANG SUDAH DIPERMANTAP ===
               Container(
                 margin: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                 padding: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.grey.shade200,
-                  ), // Border halus
+                  border: Border.all(color: Colors.grey.shade200),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05), // Shadow tipis
+                      color: Colors.black.withOpacity(0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -116,9 +106,8 @@ class _HistoryPageState extends State<HistoryPage> {
                   focusedDay: _focusedDay,
                   calendarFormat: _calendarFormat,
 
-                  // --- PENGATURAN UKURAN (Compact) ---
-                  rowHeight: 42, // Mengurangi tinggi baris (Standard ~52)
-                  daysOfWeekHeight: 22, // Header hari lebih kecil
+                  rowHeight: 42,
+                  daysOfWeekHeight: 22,
 
                   selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                   onDaySelected: (selectedDay, focusedDay) {
@@ -138,7 +127,6 @@ class _HistoryPageState extends State<HistoryPage> {
                     return _events.containsKey(normalized) ? [1] : [];
                   },
 
-                  // --- STYLE KALENDER ---
                   calendarStyle: CalendarStyle(
                     outsideDaysVisible: false,
                     weekendTextStyle: const TextStyle(color: Colors.redAccent),
@@ -154,28 +142,24 @@ class _HistoryPageState extends State<HistoryPage> {
                       fontWeight: FontWeight.bold,
                     ),
 
-                    // Style Tanggal Terpilih (Lingkaran Biru Penuh)
                     selectedDecoration: const BoxDecoration(
                       color: primaryBlue,
                       shape: BoxShape.circle,
                     ),
-                    // Style Hari Ini (Lingkaran Biru Transparan/Soft)
                     todayDecoration: BoxDecoration(
                       color: primaryBlue.withOpacity(0.15),
                       shape: BoxShape.circle,
                     ),
-                    // Penanda ada event (Titik kecil)
                     markerDecoration: const BoxDecoration(
-                      color: Color(0xFF10B981), // Hijau soft
+                      color: Color(0xFF10B981),
                       shape: BoxShape.circle,
                     ),
                     markerSize: 5,
-                    cellMargin: const EdgeInsets.all(2), // Jarak antar tanggal
+                    cellMargin: const EdgeInsets.all(2),
                   ),
 
-                  // --- STYLE HEADER ---
                   headerStyle: HeaderStyle(
-                    formatButtonVisible: true, // Tampilkan tombol ganti format
+                    formatButtonVisible: true,
                     formatButtonShowsNext: false,
                     titleCentered: true,
                     titleTextStyle: const TextStyle(
@@ -193,9 +177,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       size: 24,
                       color: primaryBlue,
                     ),
-                    headerPadding: const EdgeInsets.symmetric(
-                      vertical: 4,
-                    ), // Header lebih tipis
+                    headerPadding: const EdgeInsets.symmetric(vertical: 4),
                     formatButtonTextStyle: const TextStyle(
                       fontSize: 12,
                       color: primaryBlue,
@@ -209,7 +191,6 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
               ),
 
-              // === JUDUL HASIL SELEKSI ===
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -231,7 +212,6 @@ class _HistoryPageState extends State<HistoryPage> {
                       ),
                     ),
                     const Spacer(),
-                    // Indikator jumlah entri (Opsional, pemanis)
                     if (selectedEvents.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -256,10 +236,9 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
               const SizedBox(height: 8),
 
-              // === DAFTAR ENTRI (Expanded) ===
               Expanded(
                 child: docs.isEmpty
-                    ? _buildEmptyState() // Tampilan jika user belum pernah input sama sekali
+                    ? _buildEmptyState()
                     : selectedEvents.isEmpty
                     ? Center(
                         child: Column(
@@ -294,9 +273,7 @@ class _HistoryPageState extends State<HistoryPage> {
                           final timestamp = (data['timestamp'] as Timestamp?)
                               ?.toDate();
                           final timeStr = timestamp != null
-                              ? DateFormat('HH:mm', 'id_ID').format(
-                                  timestamp,
-                                ) // Tampilkan Jam
+                              ? DateFormat('HH:mm', 'id_ID').format(timestamp)
                               : '';
 
                           return _buildHistoryCard(
@@ -348,15 +325,15 @@ class _HistoryPageState extends State<HistoryPage> {
   Color _getBorderColor(String mood) {
     switch (mood) {
       case 'Sangat Baik':
-        return const Color(0xFF10B981); // Green
+        return const Color(0xFF10B981);
       case 'Baik':
-        return const Color(0xFF34D399); // Light Green
+        return const Color(0xFF34D399);
       case 'Biasa Saja':
-        return const Color(0xFFFBBF24); // Amber/Orange
+        return const Color(0xFFFBBF24);
       case 'Buruk':
-        return const Color(0xFFF87171); // Red Light
+        return const Color(0xFFF87171);
       case 'Sangat Buruk':
-        return const Color(0xFFEF4444); // Red
+        return const Color(0xFFEF4444);
       default:
         return Colors.grey;
     }
@@ -395,7 +372,6 @@ class _HistoryPageState extends State<HistoryPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          // Mengganti border tebal dengan border kiri (accent) agar lebih rapi
           border: Border.all(color: Colors.grey.shade100),
           boxShadow: [
             BoxShadow(
@@ -408,7 +384,6 @@ class _HistoryPageState extends State<HistoryPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Indikator Warna Mood (Garis vertikal kecil)
             Container(
               width: 4,
               height: 40,
@@ -419,11 +394,9 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
             const SizedBox(width: 12),
 
-            // Emoji
             Text(emoji, style: const TextStyle(fontSize: 32)),
             const SizedBox(width: 12),
 
-            // Konten Teks
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -440,7 +413,7 @@ class _HistoryPageState extends State<HistoryPage> {
                         ),
                       ),
                       Text(
-                        time, // Menampilkan Jam
+                        time,
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[500],

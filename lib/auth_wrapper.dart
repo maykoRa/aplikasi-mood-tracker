@@ -8,11 +8,9 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Gunakan StreamBuilder untuk mendengarkan perubahan status autentikasi
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(), // Stream status login
+      stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Tampilkan loading indicator jika masih memeriksa status
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),

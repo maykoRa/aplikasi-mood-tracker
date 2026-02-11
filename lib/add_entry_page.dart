@@ -1,4 +1,3 @@
-// lib/add_entry_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -22,17 +21,14 @@ class _AddEntryPageState extends State<AddEntryPage>
   bool _isLoading = false;
   final DateTime _selectedDateTime = DateTime.now();
 
-  // Speech to Text
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   String _localeId = 'id_ID';
 
-  // Variabel Logic
   String _textBeforeListening = '';
   bool _isListeningSheetOpen = false;
   Timer? _micWatchdog;
 
-  // Warna Tema
   final Color _primaryBlue = const Color(0xFF3B82F6);
   final Color _bgPage = const Color(0xFFF1F5F9);
   final Color _bgPaper = const Color(0xFFFFFFFF);
@@ -60,7 +56,6 @@ class _AddEntryPageState extends State<AddEntryPage>
       _speechEnabled = await _speechToText.initialize(
         onError: (val) {
           debugPrint('Speech Error: $val');
-          // Tutup sheet jika error terjadi
           _closeSheetSafe();
         },
         onStatus: (status) => debugPrint('Speech Status: $status'),
@@ -144,7 +139,6 @@ class _AddEntryPageState extends State<AddEntryPage>
         },
       );
 
-      // Watchdog untuk memantau status mic sistem
       _micWatchdog?.cancel();
       Future.delayed(const Duration(seconds: 1), () {
         _micWatchdog = Timer.periodic(const Duration(milliseconds: 500), (
@@ -444,7 +438,6 @@ class _AddEntryPageState extends State<AddEntryPage>
               top: false,
               child: Row(
                 children: [
-                  // TOMBOL MIC (REVISI WARNA: BIRU MUDA NETRAL)
                   GestureDetector(
                     onTap: _speechEnabled && !_isLoading
                         ? () => _startListening(context)
@@ -453,7 +446,7 @@ class _AddEntryPageState extends State<AddEntryPage>
                       height: 52,
                       width: 52,
                       decoration: BoxDecoration(
-                        color: _primaryBlue.withOpacity(0.1), // Biru Muda
+                        color: _primaryBlue.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: _primaryBlue.withOpacity(0.2),
@@ -461,7 +454,7 @@ class _AddEntryPageState extends State<AddEntryPage>
                       ),
                       child: Icon(
                         Icons.mic_rounded,
-                        color: _primaryBlue, // Ikon Biru
+                        color: _primaryBlue,
                         size: 26,
                       ),
                     ),

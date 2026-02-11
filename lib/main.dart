@@ -1,28 +1,19 @@
-// lib/main.dart
-
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart'; // Import Firebase Core
-import 'firebase_options.dart'; // Import file konfigurasi
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'splash_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-// --- TAMBAHKAN IMPORT INI ---
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'notification_service.dart'; // Import service baru kita
-// --- AKHIR IMPORT ---
+import 'notification_service.dart';
 
-// Ubah main menjadi async
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await initializeDateFormatting('id_ID', null);
 
-  // --- TAMBAHKAN BLOK INISIALISASI INI ---
-  // Setup Timezone
   tz.initializeTimeZones();
-  // Set lokasi lokal (Gunakan lokasi yang relevan atau biarkan default)
-  // 'Asia/Makassar' didapat dari konteks, ganti jika perlu
   try {
     tz.setLocalLocation(tz.getLocation('Asia/Makassar'));
   } catch (e) {
@@ -30,9 +21,7 @@ Future<void> main() async {
     tz.setLocalLocation(tz.UTC);
   }
 
-  // Inisialisasi Notification Service
   await NotificationService().init();
-  // --- AKHIR BLOK ---
 
   runApp(const MyApp());
 }
@@ -55,9 +44,7 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('id', 'ID'), // Bahasa Indonesia
-      ],
+      supportedLocales: const [Locale('id', 'ID')],
       locale: const Locale('id', 'ID'),
       home: const SplashScreen(),
     );

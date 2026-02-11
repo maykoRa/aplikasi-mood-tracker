@@ -1,5 +1,3 @@
-// lib/entry_detail_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -15,11 +13,9 @@ class EntryDetailPage extends StatefulWidget {
 }
 
 class _EntryDetailPageState extends State<EntryDetailPage> {
-  // Palet Warna Utama Aplikasi
   final Color primaryBlue = const Color(0xFF3B82F6);
   final Color lightBlueOutline = const Color(0xFFDBEAFE);
 
-  // Helper Warna Mood
   Color _getMoodColor(String mood) {
     switch (mood) {
       case 'Sangat Baik':
@@ -54,9 +50,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
     }
   }
 
-  // --- REVISI: Pop-up Hapus Entri Minimalis & Rapi ---
   Future<void> _deleteEntry(BuildContext context) async {
-    // Definisi Warna Tema untuk Aksi Hapus (Bahaya)
     const Color dangerRed = Color(0xFFFF4D4F);
     const Color lightRedBg = Color(0xFFFFF1F0);
 
@@ -82,7 +76,6 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 1. Icon Header (Lingkaran Merah Muda)
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
@@ -90,14 +83,13 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.delete_forever_rounded, // Icon tong sampah
+                  Icons.delete_forever_rounded,
                   color: dangerRed,
                   size: 32,
                 ),
               ),
               const SizedBox(height: 16),
 
-              // 2. Title
               const Text(
                 'Hapus Entri?',
                 style: TextStyle(
@@ -109,7 +101,6 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
               ),
               const SizedBox(height: 8),
 
-              // 3. Description
               Text(
                 'Entri ini akan dihapus secara permanen dan tidak dapat dikembalikan.',
                 textAlign: TextAlign.center,
@@ -121,10 +112,8 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
               ),
               const SizedBox(height: 24),
 
-              // 4. Action Buttons (Simetris)
               Row(
                 children: [
-                  // Tombol Batal
                   Expanded(
                     child: TextButton(
                       onPressed: () => Navigator.of(context).pop(false),
@@ -145,7 +134,6 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Tombol Hapus
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => Navigator.of(context).pop(true),
@@ -176,7 +164,6 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
     );
 
     if (confirmed == true) {
-      // Tampilkan loading dialog sederhana saat proses hapus berjalan
       if (mounted) {
         showDialog(
           context: context,
@@ -194,7 +181,6 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
             .delete();
 
         if (mounted) {
-          // Tutup loading dialog dan pindah ke home
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (context) =>
@@ -205,7 +191,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
         }
       } catch (e) {
         if (mounted) {
-          Navigator.pop(context); // Tutup loading dialog jika error
+          Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
           );
@@ -335,7 +321,6 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // === DATE HEADER ===
                 Center(
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -361,7 +346,6 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                 ),
                 const SizedBox(height: 30),
 
-                // === MOOD HERO (Emoji Besar) ===
                 Center(
                   child: Column(
                     children: [
@@ -375,7 +359,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: moodColor, // Warna Mood
+                          color: moodColor,
                         ),
                       ),
                     ],
@@ -383,7 +367,6 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                 ),
                 const SizedBox(height: 40),
 
-                // === SECTION 1: CERITAMU (Nuansa Biru Aplikasi) ===
                 Row(
                   children: [
                     Icon(Icons.menu_book_rounded, color: primaryBlue, size: 22),
@@ -393,7 +376,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: primaryBlue, // Konsisten tema biru
+                        color: primaryBlue,
                       ),
                     ),
                   ],
@@ -405,7 +388,6 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    // Border biru tipis (tema aplikasi)
                     border: Border.all(color: lightBlueOutline, width: 1.5),
                     boxShadow: [
                       BoxShadow(
@@ -427,11 +409,9 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
 
                 const SizedBox(height: 30),
 
-                // === SECTION 2: PESAN UNTUKMU (Nuansa Mood & Ikon Baru) ===
                 if (reflectionRaw != null) ...[
                   Row(
                     children: [
-                      // Ikon baru: Lampu Ide / Insight
                       Icon(
                         Icons.tips_and_updates_rounded,
                         color: moodColor,
@@ -443,7 +423,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: moodColor, // Mengikuti warna mood
+                          color: moodColor,
                         ),
                       ),
                     ],
@@ -453,10 +433,8 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      // Background soft mengikuti warna mood
                       color: moodColor.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(16),
-                      // Border mengikuti warna mood
                       border: Border.all(
                         color: moodColor.withOpacity(0.3),
                         width: 1,
@@ -485,8 +463,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                             style: const TextStyle(
                               fontSize: 15,
                               height: 1.6,
-                              color: Colors
-                                  .black87, // Teks hitam agar terbaca jelas
+                              color: Colors.black87,
                               fontStyle: FontStyle.italic,
                             ),
                           ),

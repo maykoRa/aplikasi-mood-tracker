@@ -1,5 +1,3 @@
-// lib/profile_page.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -17,19 +15,16 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Kunci untuk SharedPreferences
   static const String _kNotificationEnabledKey = 'daily_notification_enabled';
   static const String _kNotificationTimeHourKey = 'daily_notification_hour';
   static const String _kNotificationTimeMinuteKey = 'daily_notification_minute';
 
-  // Persona state
   String _currentPersona = 'friendly';
 
   bool _dailyNotificationEnabled = false;
   TimeOfDay? _selectedNotificationTime;
   bool _isLoadingSettings = true;
 
-  // Warna Tema Konsisten
   final Color _primaryBlue = const Color(0xFF3B82F6);
   final Color _lightBlueBg = const Color(0xFFEFF6FF);
   final Color _dangerRed = const Color(0xFFFF4D4F);
@@ -42,7 +37,6 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadPersona();
   }
 
-  // Load persona dari Firestore
   Future<void> _loadPersona() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) return;
@@ -70,7 +64,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // --- Fungsi Memuat Pengaturan ---
   Future<void> _loadSettings() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -88,7 +81,6 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  // --- Fungsi Menyimpan Pengaturan ---
   Future<void> _saveSettings(bool enabled, TimeOfDay? time) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kNotificationEnabledKey, enabled);
@@ -101,7 +93,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // --- UI HELPER UNTUK POPUP (Agar Seragam & Rapi) ---
   Widget _buildDialogContent({
     required IconData icon,
     required Color iconColor,
@@ -126,7 +117,6 @@ class _ProfilePageState extends State<ProfilePage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 1. Icon Header
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -136,7 +126,6 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Icon(icon, color: iconColor, size: 32),
           ),
           const SizedBox(height: 16),
-          // 2. Title
           Text(
             title,
             style: const TextStyle(
@@ -147,7 +136,6 @@ class _ProfilePageState extends State<ProfilePage> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          // 3. Description
           Text(
             description,
             textAlign: TextAlign.center,
@@ -158,14 +146,12 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(height: 24),
-          // 4. Actions (Buttons)
           actions,
         ],
       ),
     );
   }
 
-  // --- FITUR: PILIH PERSONA ---
   Future<void> _showPersonaSelectionDialog() async {
     final List<Map<String, dynamic>> personas = [
       {
@@ -453,7 +439,6 @@ class _ProfilePageState extends State<ProfilePage> {
     return map[key] ?? 'Friendly';
   }
 
-  // --- FITUR: GANTI PASSWORD ---
   Future<void> _showChangePasswordDialog() async {
     final TextEditingController oldPassController = TextEditingController();
     final TextEditingController newPassController = TextEditingController();
@@ -725,12 +710,10 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- Fungsi Notifikasi (REVISI: Material Picker tapi Rapi) ---
   Future<void> _handleDailyNotificationChange(bool newValue) async {
     final notificationService = NotificationService();
 
     if (newValue == true) {
-      // 1. Cek Izin
       final PermissionStatus status =
           await Permission.scheduleExactAlarm.status;
       if (!status.isGranted) {
@@ -739,8 +722,6 @@ class _ProfilePageState extends State<ProfilePage> {
         return;
       }
 
-      // 2. Tampilkan Time Picker dengan Tema Aplikasi
-      // Menggunakan showTimePicker (Dial/Putar2) tapi dibungkus Theme agar cantik
       final TimeOfDay? pickedTime = await showTimePicker(
         context: context,
         initialTime:
@@ -752,14 +733,14 @@ class _ProfilePageState extends State<ProfilePage> {
           return Theme(
             data: Theme.of(context).copyWith(
               colorScheme: ColorScheme.light(
-                primary: _primaryBlue, // Warna header dan jarum jam
-                onPrimary: Colors.white, // Warna teks header
-                surface: Colors.white, // Warna background
-                onSurface: Colors.black87, // Warna angka/teks body
+                primary: _primaryBlue,
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: Colors.black87,
               ),
               textButtonTheme: TextButtonThemeData(
                 style: TextButton.styleFrom(
-                  foregroundColor: _primaryBlue, // Warna tombol Batal/Simpan
+                  foregroundColor: _primaryBlue,
                   textStyle: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -807,11 +788,9 @@ class _ProfilePageState extends State<ProfilePage> {
           );
         }
       } else {
-        // User cancel
         setState(() => _dailyNotificationEnabled = false);
       }
     } else {
-      // Matikan notifikasi
       setState(() {
         _dailyNotificationEnabled = false;
         _selectedNotificationTime = null;
@@ -830,7 +809,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // --- Fungsi Logout (REVISI: Simetris & Proporsional) ---
   Future<void> _handleLogout() async {
     final bool? confirmLogout = await showDialog<bool>(
       context: context,
@@ -916,7 +894,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // --- Fungsi Hapus Akun (REVISI: Simetris & Proporsional) ---
   Future<void> _handleDeleteAccount() async {
     final User? user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -1047,7 +1024,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // --- Dialog Izin Alarm ---
   Future<void> _showAlarmPermissionDialog() async {
     await showDialog<void>(
       context: context,
@@ -1124,7 +1100,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 40),
 
-            // Pengaturan
             _buildSectionTitle('Pengaturan'),
             const SizedBox(height: 10),
             _buildSettingsCard(
@@ -1168,7 +1143,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
             const SizedBox(height: 30),
 
-            // Akun
             _buildSectionTitle('Akun'),
             const SizedBox(height: 10),
             _buildSettingsCard(
@@ -1204,7 +1178,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // Helper Widgets
   Widget _buildSectionTitle(String title) => Padding(
     padding: const EdgeInsets.only(left: 5),
     child: Text(
