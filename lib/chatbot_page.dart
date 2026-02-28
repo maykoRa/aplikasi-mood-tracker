@@ -1,5 +1,3 @@
-// lib/chatbot_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -26,7 +24,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
   bool _isLoading = false;
 
-  // === VOICE INPUT ===
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   bool _isListening = false;
@@ -168,11 +165,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
     }
   }
 
-  // --- REVISI: Pop-up Hapus Chat Minimalis & Rapi ---
   Future<void> _handleDeleteChat() async {
     if (_currentChatId == null || user == null) return;
 
-    // Warna Tema untuk Aksi Hapus (Bahaya)
     const Color dangerRed = Color(0xFFFF4D4F);
     const Color lightRedBg = Color(0xFFFFF1F0);
 
@@ -201,7 +196,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 1. Icon Header (Lingkaran Merah Muda)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: const BoxDecoration(
@@ -209,14 +203,13 @@ class _ChatbotPageState extends State<ChatbotPage> {
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
-                    Icons.delete_sweep_rounded, // Icon sapu/hapus
+                    Icons.delete_sweep_rounded,
                     color: dangerRed,
                     size: 32,
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // 2. Title
                 const Text(
                   'Hapus Riwayat?',
                   style: TextStyle(
@@ -228,7 +221,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
                 ),
                 const SizedBox(height: 8),
 
-                // 3. Description (Lebih rapi)
                 Text(
                   'Percakapan ini akan dihapus permanen. Ingatan AI tentang topik ini akan di-reset.',
                   textAlign: TextAlign.center,
@@ -240,10 +232,8 @@ class _ChatbotPageState extends State<ChatbotPage> {
                 ),
                 const SizedBox(height: 24),
 
-                // 4. Buttons (Simetris & Proporsional)
                 Row(
                   children: [
-                    // Tombol Batal
                     Expanded(
                       child: TextButton(
                         onPressed: () => Navigator.of(context).pop(false),
@@ -264,7 +254,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Tombol Hapus
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () => Navigator.of(context).pop(true),
@@ -355,7 +344,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
           ? const Center(child: Text('Silakan login terlebih dahulu'))
           : Column(
               children: [
-                // === SUMMARY ===
                 if (_currentChatId != null)
                   StreamBuilder<DocumentSnapshot>(
                     stream: _chatSessionRef.snapshots(),
@@ -389,7 +377,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
                     },
                   ),
 
-                // === CHAT MESSAGES ===
                 Expanded(
                   child: _currentChatId == null
                       ? const Center(
@@ -462,13 +449,10 @@ class _ChatbotPageState extends State<ChatbotPage> {
                         ),
                 ),
 
-                // === INPUT FIELD AREA (DIPERBAIKI) ===
                 Container(
-                  // 1. Memberikan padding bawah agar tidak mepet
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    // 2. Memberikan shadow agar terpisah dari chat
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.withOpacity(0.1),
@@ -492,10 +476,8 @@ class _ChatbotPageState extends State<ChatbotPage> {
                                 : 'Ceritakan perasaanmu...',
                             hintStyle: TextStyle(color: Colors.grey.shade400),
 
-                            // 3. MEMPERJELAS BORDER
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(25),
-                              // Border default (saat tidak fokus)
                               borderSide: BorderSide(
                                 color: Colors.grey.shade300,
                                 width: 1.0,
@@ -504,28 +486,25 @@ class _ChatbotPageState extends State<ChatbotPage> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(25),
                               borderSide: BorderSide(
-                                color:
-                                    Colors.grey.shade300, // Warna border jelas
+                                color: Colors.grey.shade300,
                                 width: 1.0,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(25),
                               borderSide: const BorderSide(
-                                color: primaryBlue, // Warna border saat ngetik
+                                color: primaryBlue,
                                 width: 1.5,
                               ),
                             ),
 
                             filled: true,
-                            fillColor:
-                                Colors.grey[50], // Background dalam input
+                            fillColor: Colors.grey[50],
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 20,
                               vertical: 12,
                             ),
 
-                            // Icon di dalam input
                             suffixIcon: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [

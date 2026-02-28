@@ -3,7 +3,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// --- Model Mood Data ---
 class MoodEntry {
   final String mood;
   final DateTime date;
@@ -25,18 +24,17 @@ class _StatisticsPageState extends State<StatisticsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<MoodEntry> _moodData = [];
   bool _isLoading = true;
-  String _currentFilter = '7 Hari Terakhir'; // Filter default
+  String _currentFilter = '7 Hari Terakhir';
 
   late List<PieChartSectionData> _pieChartSections;
   int _touchedIndex = -1;
 
-  // Style konstan
   final Color primaryBlue = const Color(0xFF3B82F6);
   final TextStyle headerStyle = const TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w600,
-    color: Color(0xFF3B82F6), // primaryBlue
-    fontFamily: 'Poppins', // Tambahkan Poppins juga di sub-header
+    color: Color(0xFF3B82F6),
+    fontFamily: 'Poppins',
   );
 
   @override
@@ -45,7 +43,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     _fetchMoodData(_currentFilter);
   }
 
-  // Fungsi untuk mendapatkan warna berdasarkan mood
   Color _getMoodColor(String mood) {
     switch (mood) {
       case 'Sangat Baik':
@@ -63,7 +60,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     }
   }
 
-  // Dekorasi Card
   BoxDecoration _cardDecoration(Color borderColor) {
     return BoxDecoration(
       color: Colors.white,
@@ -80,7 +76,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     );
   }
 
-  // --- Fungsi Mengambil Data dari Firestore ---
   Future<void> _fetchMoodData(String filter) async {
     setState(() => _isLoading = true);
     final user = _auth.currentUser;
@@ -123,7 +118,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     }
   }
 
-  // --- FUNGSI HELPER: Untuk menyingkat label bar chart ---
   String _getShortMoodLabel(String mood) {
     switch (mood) {
       case 'Sangat Baik':
@@ -133,11 +127,10 @@ class _StatisticsPageState extends State<StatisticsPage> {
       case 'Biasa Saja':
         return 'Biasa';
       default:
-        return mood; // 'Baik', 'Buruk'
+        return mood;
     }
   }
 
-  // --- Fungsi untuk Mengolah Data Grafik Bar ---
   BarChartData _mainBarData() {
     final Map<String, int> moodCounts = _getMoodSummary()['moodCounts'];
     const List<String> moodOrder = [
@@ -277,7 +270,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     );
   }
 
-  // --- Fungsi untuk Ringkasan Mood ---
   Map<String, dynamic> _getMoodSummary() {
     final Map<String, int> moodCounts = {};
     for (var entry in _moodData) {
@@ -294,7 +286,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     };
   }
 
-  // --- Helper untuk Statistik Umum ---
   int _getMoodNumericValue(String mood) {
     switch (mood) {
       case 'Sangat Baik':
@@ -333,7 +324,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     return 'Sangat Buruk';
   }
 
-  // --- Helper Widget untuk Statistik Umum ---
   Widget _buildOverallStats() {
     String avgMood = _getAverageMood();
     int totalEntries = _moodData.length;
@@ -362,7 +352,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     );
   }
 
-  // Widget Card Statistik Umum
   Widget _buildStatCard(
     String title,
     String value,
@@ -399,7 +388,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     );
   }
 
-  // --- Helper Widget untuk Distribusi Pie Chart ---
   Widget _buildPieChartSection(Map<String, int> moodCounts) {
     if (moodCounts.isEmpty) {
       return const SizedBox(
@@ -462,7 +450,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     );
   }
 
-  // --- Legenda ---
   Widget _buildLegend(Map<String, int> moodCounts) {
     if (moodCounts.isEmpty) return const SizedBox.shrink();
 
@@ -501,7 +488,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     );
   }
 
-  // --- Widget Card Ringkasan ---
   Widget _buildSummaryCard(
     String title,
     MapEntry<String, int>? entry,
@@ -534,7 +520,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
     );
   }
 
-  // --- Widget Filter ---
   Widget _buildFilterToggle() {
     final List<bool> isSelected = [
       _currentFilter == '7 Hari Terakhir',
@@ -609,8 +594,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
         foregroundColor: Colors.black,
         elevation: 0,
         centerTitle: true,
-        scrolledUnderElevation: 0, // Mencegah perubahan warna saat scroll
-        // --- TOMBOL KEMBALI CUSTOM ---
+        scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           color: Colors.black,
@@ -622,7 +606,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
           color: Colors.black,
           fontSize: 18,
           fontWeight: FontWeight.w600,
-          fontFamily: 'Poppins', // Menggunakan font Poppins
+          fontFamily: 'Poppins',
         ),
       ),
       body: SingleChildScrollView(

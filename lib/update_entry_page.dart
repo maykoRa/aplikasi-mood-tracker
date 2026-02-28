@@ -1,4 +1,3 @@
-// lib/update_entry_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -28,34 +27,28 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
   late TextEditingController _journalController;
   final ScrollController _scrollController = ScrollController();
 
-  // Tanggal sekarang statis (tidak bisa diubah)
   late DateTime _selectedDateTime;
 
   bool _isLoading = false;
 
-  // Speech to Text
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   String _localeId = 'id_ID';
 
-  // Variabel Logic
   String _textBeforeListening = '';
   bool _isListeningSheetOpen = false;
   Timer? _micWatchdog;
 
-  // Warna Tema (Tetap Sama)
   final Color _primaryBlue = const Color(0xFF3B82F6);
   final Color _bgPage = const Color(0xFFF1F5F9);
   final Color _bgPaper = const Color(0xFFFFFFFF);
   final Color _textTitle = const Color(0xFF1E293B);
   final Color _textBody = const Color(0xFF334155);
-  // final Color _textHint = const Color(0xFF94A3B8); // Tidak dipakai lagi karena teks hint dihapus
 
   @override
   void initState() {
     super.initState();
     _journalController = TextEditingController(text: widget.currentJournal);
-    // Inisialisasi tanggal dari data yang dikirim (tidak akan diubah)
     _selectedDateTime = widget.currentTimestamp;
     _initSpeech();
   }
@@ -182,7 +175,6 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
     await _speechToText.stop();
   }
 
-  // --- UPDATE ENTRY ---
   Future<void> _updateEntry() async {
     final newJournal = _journalController.text.trim();
     if (newJournal.isEmpty || newJournal.length < 5) {
@@ -203,12 +195,8 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
     try {
       final bool journalChanged = newJournal != widget.currentJournal.trim();
 
-      final Map<String, dynamic> updateData = {
-        'journal': newJournal,
-        // Timestamp tidak diubah karena read-only
-      };
+      final Map<String, dynamic> updateData = {'journal': newJournal};
 
-      // Reset mood jika jurnal berubah
       if (journalChanged) {
         updateData['mood'] = 'Menunggu AI...';
         updateData['reflection'] = null;
@@ -249,7 +237,6 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
 
   @override
   Widget build(BuildContext context) {
-    // Format Tanggal
     final String dayNum = DateFormat('d').format(_selectedDateTime);
     final String monthYear = DateFormat(
       'MMM yyyy',
@@ -337,7 +324,6 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
                 ),
                 child: Column(
                   children: [
-                    // Header Tanggal (READ ONLY - Tidak ada InkWell/OnTap)
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
@@ -393,14 +379,12 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
                                   fontFamily: 'Poppins',
                                 ),
                               ),
-                              // Subtitle "Ketuk untuk ubah" dihapus agar terlihat read-only
                             ],
                           ),
                         ],
                       ),
                     ),
 
-                    // Area Tulis
                     Expanded(
                       child: SingleChildScrollView(
                         controller: _scrollController,
@@ -442,7 +426,6 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
             ),
           ),
 
-          // Bottom Bar
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -522,7 +505,6 @@ class _UpdateEntryPageState extends State<UpdateEntryPage>
   }
 }
 
-// --- WIDGET POP-UP PULSE ---
 class ListeningSheet extends StatefulWidget {
   const ListeningSheet({super.key});
 

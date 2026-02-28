@@ -1,8 +1,7 @@
-// lib/register_page.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Import Font Awesome yang benar
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'home_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -19,7 +18,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
-  bool _obscurePassword = true; // State untuk visibilitas password
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -261,7 +260,6 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                         const SizedBox(height: 20),
 
-                        // Password Text Field (UPDATED ICON)
                         TextFormField(
                           controller: _passwordController,
                           enabled: !_isLoading,
@@ -270,11 +268,10 @@ class _RegisterPageState extends State<RegisterPage> {
                             hintStyle: const TextStyle(color: hintTextColor),
                             suffixIcon: IconButton(
                               icon: FaIcon(
-                                // Menggunakan FaIcon (Font Awesome Icon)
                                 _obscurePassword
                                     ? FontAwesomeIcons.eyeSlash
                                     : FontAwesomeIcons.eye,
-                                size: 18, // Ukuran ikon yang lebih kecil
+                                size: 18,
                                 color: hintTextColor,
                               ),
                               onPressed: () {

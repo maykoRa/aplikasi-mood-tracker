@@ -1,10 +1,9 @@
-// lib/login_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Import Font Awesome
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'register_page.dart';
 import 'home_page.dart';
+import 'forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -19,7 +18,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
-  bool _obscurePassword = true; // State untuk visibilitas password
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -179,7 +178,6 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 20),
 
-                        // Password Text Field (UPDATED ICON)
                         TextFormField(
                           controller: _passwordController,
                           enabled: !_isLoading,
@@ -188,11 +186,10 @@ class _LoginPageState extends State<LoginPage> {
                             hintStyle: const TextStyle(color: hintTextColor),
                             suffixIcon: IconButton(
                               icon: FaIcon(
-                                // Menggunakan FaIcon (Font Awesome Icon)
                                 _obscurePassword
                                     ? FontAwesomeIcons.eyeSlash
                                     : FontAwesomeIcons.eye,
-                                size: 18, // Ukuran ikon yang lebih kecil
+                                size: 18,
                                 color: hintTextColor,
                               ),
                               onPressed: () {
@@ -235,7 +232,38 @@ class _LoginPageState extends State<LoginPage> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 35),
+                        const SizedBox(height: 8),
+
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const ForgotPasswordPage(),
+                                ),
+                              );
+                            },
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(50, 30),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              alignment: Alignment.centerRight,
+                            ),
+                            child: const Text(
+                              'Forgot Password?',
+                              style: TextStyle(
+                                color: secondaryBlue,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
 
                         ElevatedButton(
                           onPressed: _isLoading ? null : _handleSignIn,

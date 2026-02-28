@@ -1,5 +1,3 @@
-// lib/edit_profile_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -16,7 +14,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
 
-  
+  // Warna Tema (Konsisten dengan ProfilePage)
   final Color _primaryBlue = const Color(0xFF3B82F6);
   final Color _lightBlueBg = const Color(0xFFEFF6FF);
 
@@ -78,7 +76,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
 
     try {
-      
+      // Kita perlu re-autentikasi (verifikasi password)
       final String? password = await _showPasswordDialog(
         isChangingEmail: emailChanged,
       );
@@ -87,7 +85,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         setState(() {
           _isLoading = false;
         });
-        return; 
+        return; // User batal
       }
 
       AuthCredential credential = EmailAuthProvider.credential(
@@ -95,21 +93,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
         password: password,
       );
 
-      
+      // Lakukan re-autentikasi
       await user.reauthenticateWithCredential(credential);
 
-      
+      // --- LOGIKA UPDATE ---
+
+      // 1. Logika Update Nama (jika berubah)
       if (nameChanged) {
         await user.updateDisplayName(newName);
         await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .update({
-              'name': newName, 
+              'name': newName, // Sesuai register_page.dart
             });
       }
 
-      
+      // 2. Logika Update Email (jika berubah)
       String successMessage = 'Profile berhasil diperbarui';
       if (emailChanged) {
         await user.verifyBeforeUpdateEmail(newEmail);
@@ -121,17 +121,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
               'Sebuah link verifikasi telah dikirim ke $newEmail. Silakan cek email Anda.';
         }
       }
-      
+      // --- AKHIR LOGIKA UPDATE ---
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(successMessage),
             backgroundColor: Colors.green,
-            duration: const Duration(seconds: 5), 
+            duration: const Duration(seconds: 5), // Pesan lebih panjang
           ),
         );
-        Navigator.of(context).pop(true); 
+        Navigator.of(context).pop(true); // Kirim 'true' = sukses
       }
     } on FirebaseAuthException catch (e) {
       String message = 'Gagal memperbarui profile.';
@@ -180,7 +180,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         ? 'Karena Anda mengubah email, kami memerlukan verifikasi password untuk keamanan.'
         : 'Masukkan password Anda untuk menyimpan perubahan pada profil ini.';
 
-    
+    // Helper untuk Input Decoration
     InputDecoration buildInputDecoration(
       String label,
       IconData icon,
@@ -232,7 +232,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               elevation: 0,
               backgroundColor: Colors.transparent,
-              
+              // FIX: SingleChildScrollView mencegah overflow saat keyboard muncul
               child: SingleChildScrollView(
                 child: Container(
                   padding: const EdgeInsets.all(24),
@@ -250,7 +250,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      
+                      // 1. Header Icon
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -265,7 +265,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                       const SizedBox(height: 16),
 
-                      
+                      // 2. Title
                       Text(
                         dialogTitle,
                         style: const TextStyle(
@@ -277,7 +277,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                       const SizedBox(height: 8),
 
-                      
+                      // 3. Message
                       Text(
                         dialogMessage,
                         textAlign: TextAlign.center,
@@ -289,13 +289,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                       const SizedBox(height: 24),
 
-                     
+                      // 4. Form Input
                       Form(
                         key: dialogFormKey,
                         child: TextFormField(
                           controller: passwordDialogController,
                           obscureText: isObscure,
-                          autofocus: true, 
+                          autofocus: true, // Keyboard muncul otomatis
                           decoration: buildInputDecoration(
                             'Password',
                             Icons.lock_outline_rounded,
@@ -309,7 +309,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                       const SizedBox(height: 24),
 
-                      
+                      // 5. Action Buttons (Vertical Layout)
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -370,7 +370,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
-        elevation: 0, // Hilangkan shadow agar lebih clean
+        elevation: 0,
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
@@ -386,7 +386,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Input Nama
                 TextFormField(
                   controller: _nameController,
                   enabled: !_isLoading,
@@ -425,7 +424,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
                 const SizedBox(height: 20),
 
-                // Input Email
                 TextFormField(
                   controller: _emailController,
                   enabled: !_isLoading,
@@ -464,7 +462,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
                 const SizedBox(height: 40),
 
-                // Tombol Simpan
                 ElevatedButton(
                   onPressed: _isLoading ? null : _updateProfile,
                   style: ElevatedButton.styleFrom(

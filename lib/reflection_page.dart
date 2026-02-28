@@ -30,7 +30,6 @@ class _ReflectionPageState extends State<ReflectionPage> {
   String? _error;
   DateTime _selectedDate = DateTime.now();
 
-  // Warna Tema
   final Color _primaryBlue = const Color(0xFF3B82F6);
   final Color _lightBlueBg = const Color(0xFFEFF6FF);
 
@@ -93,7 +92,6 @@ class _ReflectionPageState extends State<ReflectionPage> {
     }
   }
 
-  // --- POP UP DATE PICKER MODERN ---
   void _selectDate(BuildContext context) async {
     DateTime tempPickedDate = _selectedDate;
 
@@ -114,7 +112,6 @@ class _ReflectionPageState extends State<ReflectionPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 1. Header Pop Up
                     Row(
                       children: [
                         Container(
@@ -142,7 +139,6 @@ class _ReflectionPageState extends State<ReflectionPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 2. Preview Tanggal
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
@@ -167,7 +163,6 @@ class _ReflectionPageState extends State<ReflectionPage> {
                     ),
                     const SizedBox(height: 8),
 
-                    // 3. Kalender
                     Theme(
                       data: ThemeData.light().copyWith(
                         colorScheme: ColorScheme.light(
@@ -195,7 +190,6 @@ class _ReflectionPageState extends State<ReflectionPage> {
                     ),
                     const SizedBox(height: 24),
 
-                    // 4. Tombol Aksi
                     Row(
                       children: [
                         Expanded(
@@ -253,7 +247,6 @@ class _ReflectionPageState extends State<ReflectionPage> {
     }
   }
 
-  // --- WIDGET DATE SELECTOR ---
   Widget _buildDateSelector() {
     String formattedDate = DateFormat(
       'EEEE, dd MMMM yyyy',
@@ -324,7 +317,6 @@ class _ReflectionPageState extends State<ReflectionPage> {
     );
   }
 
-  // --- WIDGET MOTIVASI ---
   Widget _buildMotivationCard() {
     return Container(
       width: double.infinity,
@@ -407,7 +399,6 @@ class _ReflectionPageState extends State<ReflectionPage> {
     );
   }
 
-  // --- WIDGET SUMMARY ---
   Widget _buildSummaryCard() {
     final summary = _reflectionData?.summary ?? [];
 
@@ -521,13 +512,10 @@ class _ReflectionPageState extends State<ReflectionPage> {
         foregroundColor: Colors.black87,
         elevation: 0,
         scrolledUnderElevation: 0,
-        // --- TOMBOL KEMBALI HITAM & TEGAS ---
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-          ), // Panah standar yang lebih tegas
-          color: Colors.black, // Warna hitam sesuai permintaan
-          iconSize: 24, // Ukuran proporsional dengan judul
+          icon: const Icon(Icons.arrow_back_rounded),
+          color: Colors.black,
+          iconSize: 24,
           tooltip: 'Kembali',
           onPressed: () => Navigator.of(context).pop(),
         ),

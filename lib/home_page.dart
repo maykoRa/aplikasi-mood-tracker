@@ -1,5 +1,3 @@
-// lib/home_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -21,7 +19,6 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
 
-  // Widget Options tetap static final
   static final List<Widget> _widgetOptions = <Widget>[
     const HomeScreenContent(),
     const HistoryPage(),
@@ -46,7 +43,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // === POP-UP REFLEKSI (SESUAI REQUEST SEBELUMNYA) ===
   void _showReflectionDialog(String reflection) {
     showDialog(
       context: context,
@@ -71,7 +67,6 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Icon Header
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
@@ -86,7 +81,6 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 20),
 
-              // Title
               const Text(
                 'Pesan Untukmu',
                 style: TextStyle(
@@ -97,7 +91,6 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 12),
 
-              // Content Text
               Text(
                 reflection,
                 textAlign: TextAlign.center,
@@ -109,7 +102,6 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 24),
 
-              // Action Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -218,10 +210,6 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// =========================================================================
-// HOMESCREENCONTENT (OPTIMIZED)
-// =========================================================================
-
 class HomeScreenContent extends StatefulWidget {
   const HomeScreenContent({super.key});
 
@@ -230,7 +218,6 @@ class HomeScreenContent extends StatefulWidget {
 }
 
 class _HomeScreenContentState extends State<HomeScreenContent> {
-  // Deklarasi Stream agar di-init sekali saja (Lebih Stabil)
   late Stream<DocumentSnapshot<Map<String, dynamic>>> _recommendationStream;
   late Stream<QuerySnapshot<Map<String, dynamic>>> _todayEntriesStream;
 
@@ -243,13 +230,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   void _initStreams() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Stream kosong jika user tidak ada (safety)
       _recommendationStream = const Stream.empty();
       _todayEntriesStream = const Stream.empty();
       return;
     }
 
-    // 1. Init Stream Rekomendasi
     _recommendationStream = FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
@@ -257,7 +242,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         .doc('daily')
         .snapshots();
 
-    // 2. Init Stream Entries Hari Ini
     final now = DateTime.now();
     final startOfDay = Timestamp.fromDate(
       DateTime(now.year, now.month, now.day),
@@ -332,7 +316,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             ),
             const SizedBox(height: 30),
 
-            // === HEADER REKOMENDASI ===
             const Text(
               'Rekomendasi hari ini',
               style: TextStyle(
@@ -343,7 +326,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             ),
             const SizedBox(height: 10),
 
-            // === BOX REKOMENDASI (STREAM SUDAH DI-INIT DI AWAL) ===
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
               decoration: BoxDecoration(
@@ -359,7 +341,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 ],
               ),
               child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                stream: _recommendationStream, // Menggunakan variabel init
+                stream: _recommendationStream,
                 builder: (context, snapshot) {
                   String textToShow =
                       'Coba luangkan waktu istirahat sejenak dan nikmati hal kecil hari ini';
@@ -371,12 +353,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                     }
                   }
 
-                  // Optional: Tambahkan animasi transisi teks agar lebih halus saat berubah
                   return AnimatedSwitcher(
                     duration: const Duration(milliseconds: 500),
                     child: Text(
                       textToShow,
-                      key: ValueKey<String>(textToShow), // Key untuk animasi
+                      key: ValueKey<String>(textToShow),
                       style: const TextStyle(
                         fontSize: 15,
                         color: Color(0xFF1E40AF),
@@ -392,7 +373,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             ),
             const SizedBox(height: 35),
 
-            // === JUDUL: CATATAN HARIANMU ===
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -411,7 +391,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             const SizedBox(height: 15),
 
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: _todayEntriesStream, // Menggunakan variabel init
+              stream: _todayEntriesStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
